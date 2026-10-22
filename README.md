@@ -118,9 +118,4 @@ python -m pytest
 ruff check .
 ```
 
-## Architecture
 
-See [`docs/architecture.md`](docs/architecture.md) for the boundary diagram,
-data contracts, concurrency/idempotency rules, and the staged path toward the
-full Supervisor, Deal Strategist, Call Coach, Competitive Intel, compliance,
-learning, and dashboard features.

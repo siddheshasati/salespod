@@ -43,6 +43,49 @@ python -m scripts.run_mcp_server
 salespod-mcp
 ```
 
+## Manager command center
+
+The repository now includes a React/Vite/TypeScript/Tailwind dashboard in
+[`frontend/`](frontend/). Start the backend and frontend in separate terminals:
+
+Terminal 1:
+
+```powershell
+cd D:\salespod
+.\.venv\Scripts\Activate.ps1
+python -m scripts.run_api
+```
+
+Terminal 2:
+
+```powershell
+cd D:\salespod\frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). The Vite development
+server proxies `/api` calls to `http://127.0.0.1:8000`.
+
+The initial command center includes:
+
+- pipeline and weighted-forecast cards
+- stage breakdown and forecast watch
+- evidence-backed approval inbox with approve/reject actions
+- deal evidence drawer with stage history and guarded stage updates
+- CRM lead search
+- supervisor chat panel backed by `/api/agent/ask`
+- signal radar placeholder connected to seeded CRM evidence
+- recent pod activity/audit feed
+
+Create a production frontend bundle with:
+
+```powershell
+cd D:\salespod\frontend
+npm run build
+npm run preview
+```
+
 The seed command writes `data/salespod.db` and a machine-readable
 `data/ground_truth.json`. The ground-truth file is an evaluation artifact and
 is not loaded by the agent runtime.
@@ -64,8 +107,9 @@ ollama list
 python -m scripts.run_agent "Find leads at Acme"
 ```
 
-The graph falls back to deterministic routing and response synthesis when the
-service is unavailable or returns malformed output.
+The graph uses a small stdlib HTTP adapter rather than making `langchain-ollama`
+a required dependency. It falls back to deterministic routing and response
+synthesis when the service is unavailable or returns malformed output.
 
 ## Checks
 

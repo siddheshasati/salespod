@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Select, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Activity, CallTranscript, Company, Deal, DealStageHistory, EmailThread, Lead
+from .models import Activity, Company, Deal, Lead
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def uuid_text(value: UUID | str) -> str:

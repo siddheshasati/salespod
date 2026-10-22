@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import os
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -12,19 +12,19 @@ class Settings:
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_chat_model: str = "qwen2.5:3b"
     ollama_embed_model: str = "nomic-embed-text"
-    dataset_as_of: datetime = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+    dataset_as_of: datetime = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
     seed: int = 424242
     log_level: str = "INFO"
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         raw_as_of = os.getenv("DATASET_AS_OF")
         as_of = cls.dataset_as_of
         if raw_as_of:
             as_of = datetime.fromisoformat(raw_as_of.replace("Z", "+00:00"))
             if as_of.tzinfo is None:
-                as_of = as_of.replace(tzinfo=timezone.utc)
-            as_of = as_of.astimezone(timezone.utc)
+                as_of = as_of.replace(tzinfo=UTC)
+            as_of = as_of.astimezone(UTC)
         return cls(
             database_url=os.getenv("DATABASE_URL", cls.database_url),
             ollama_base_url=os.getenv("OLLAMA_BASE_URL", cls.ollama_base_url).rstrip("/"),

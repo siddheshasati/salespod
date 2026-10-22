@@ -17,4 +17,11 @@ data/*.db
 data/*.db-*
 data/generated/
 !.gitkeep
+
+frontend/node_modules/
+frontend/dist/
 pyproject.toml
+
+
+#data
+data/*.db

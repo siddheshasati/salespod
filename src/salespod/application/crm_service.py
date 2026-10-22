@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from salespod.domain.contracts import (
@@ -30,7 +29,6 @@ from salespod.domain.errors import ConflictError, NotFoundError, ValidationError
 from salespod.infrastructure.db.models import Activity, Company, Deal, DealStageHistory, Lead
 from salespod.infrastructure.db.repositories import new_uuid, now_utc
 
-
 _STAGE_ORDER = list(DealStage)
 _PROBABILITY = {
     DealStage.DISCOVERY: 0.10,
@@ -52,8 +50,8 @@ _ALLOWED_TRANSITIONS = {
 
 def _utc(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _decode_cursor(cursor: str | None) -> int:
@@ -87,7 +85,9 @@ class CrmService:
                 statement.order_by(Lead.id).offset(offset).limit(request.limit)
             ).all()
             items = [self._lead_summary(session, lead) for lead in leads]
-        next_cursor = _encode_cursor(offset + request.limit) if offset + len(items) < total else None
+        next_cursor = (
+            _encode_cursor(offset + request.limit) if offset + len(items) < total else None
+        )
         return SearchLeadsResponse(items=items, next_cursor=next_cursor, total_estimate=total)
 
     def get_deal(self, deal_id: UUID | str) -> GetDealResponse:
@@ -146,7 +146,8 @@ class CrmService:
                     raise ValidationError("new stage must differ from the current stage")
                 if request.new_stage not in _ALLOWED_TRANSITIONS[current_stage]:
                     raise ValidationError(
-                        f"cannot move a deal from {current_stage.value} to {request.new_stage.value}"
+                        f"cannot move a deal from {current_stage.value} "
+                        f"to {request.new_stage.value}"
                     )
                 occurred_at = now_utc()
                 history = DealStageHistory(
@@ -221,7 +222,10 @@ class CrmService:
                 return LogActivityResponse(activity=self._activity_summary(activity))
 
     def get_pipeline_snapshot(
-        self, *, company_id: UUID | str | None = None, owner: str | None = None,
+        self,
+        *,
+        company_id: UUID | str | None = None,
+        owner: str | None = None,
         as_of: datetime | None = None,
     ) -> PipelineSnapshotResponse:
         with self.session_factory() as session:
@@ -253,7 +257,9 @@ class CrmService:
             stages=rows,
             total_count=len(deals),
             total_amount_minor=sum(deal.amount_minor for deal in deals),
-            weighted_amount_minor=sum(round(deal.amount_minor * deal.probability) for deal in deals),
+            weighted_amount_minor=sum(
+                round(deal.amount_minor * deal.probability) for deal in deals
+            ),
         )
 
     @staticmethod

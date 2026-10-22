@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import hashlib
 import json
-from pathlib import Path
 import random
 import re
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid5
 
 from faker import Faker
-from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from salespod.domain.enums import ActivityType, DealStage, LeadStatus
@@ -26,7 +25,6 @@ from salespod.infrastructure.db.models import (
     Lead,
 )
 from salespod.infrastructure.db.session import build_engine
-
 
 SEED_NAMESPACE = UUID("7efc8d77-54c6-4d59-b4be-07c9c4b6f70a")
 COMPANY_COUNT = 80
@@ -48,8 +46,8 @@ def stable_id(kind: str, index: int) -> str:
 
 def _utc(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _slug(value: str) -> str:
@@ -270,8 +268,14 @@ class SyntheticCrmGenerator:
                     "AE: Understood. Who owns the final approval?\n"
                     "Buyer: I am not sure yet; finance has not assigned an economic buyer."
                 )
-                summary = "Competitor mentioned; economic buyer is not identified and budget timing is uncertain."
-                next_steps = "Confirm economic buyer, budget owner, and decision process before forecast commitment."
+                summary = (
+                    "Competitor mentioned; economic buyer is not identified and budget timing "
+                    "is uncertain."
+                )
+                next_steps = (
+                    "Confirm economic buyer, budget owner, and decision process before "
+                    "forecast commitment."
+                )
                 self.truth_cases.append(
                     {
                         "deal_id": deal.id,
@@ -287,7 +291,8 @@ class SyntheticCrmGenerator:
             else:
                 transcript = (
                     f"AE: How is the current workflow performing, {lead.name}?\n"
-                    "Buyer: The team likes the direction. We need to align stakeholders on timing.\n"
+                    "Buyer: The team likes the direction. We need to align stakeholders "
+                    "on timing.\n"
                     "AE: I will send a recap and proposed next steps."
                 )
                 summary = "Discovery call covered workflow priorities and timing."
@@ -398,7 +403,20 @@ def seed_database(
     Base.metadata.create_all(engine)
     records, manifest = SyntheticCrmGenerator(seed=seed, as_of=as_of).generate()
     with Session(engine) as session:
-        session.add_all(records)
+        # Insert in dependency order. These are intentionally explicit rather
+        # than relying on ORM relationships, because the fixture generator
+        # keeps entities detached and transport-independent.
+        for model in (
+            Company,
+            Lead,
+            Deal,
+            EmailThread,
+            CallTranscript,
+            Activity,
+            DealStageHistory,
+        ):
+            session.add_all(record for record in records if isinstance(record, model))
+            session.flush()
         session.commit()
     if truth_output:
         output = Path(truth_output)

@@ -15,9 +15,11 @@ Manager / MCP client
                          |
                    CRM application service
                          |
-                    SQLAlchemy repositories
-                         |
-                   SQLite now / Postgres later
+                     SQLAlchemy repositories
+                          |
+                    Alembic migrations
+                          |
+                    SQLite now / Postgres later
 ```
 
 The domain layer has no dependency on FastMCP, LangGraph, Ollama, or SQLAlchemy.
@@ -73,7 +75,7 @@ change CRM state.
 
 ## Production hardening path
 
-1. Replace the additive SQLite schema guard with Alembic migrations and PostgreSQL row-level authorization.
+1. Add PostgreSQL deployment, row-level authorization, and migration checks to the Alembic-backed schema lifecycle.
 2. Put the HTTP MCP transport behind OAuth/service identity, rate limits, and
    an allow-list of mutation scopes.
 3. Add Supervisor routing for research, writer, scheduler, strategist, coach,

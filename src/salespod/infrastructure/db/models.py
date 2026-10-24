@@ -103,6 +103,7 @@ class CallTranscript(Base):
     __table_args__ = (
         Index("ix_call_transcripts_company_id", "company_id"),
         Index("ix_call_transcripts_lead_id", "lead_id"),
+        Index("ix_call_transcripts_deal_id", "deal_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

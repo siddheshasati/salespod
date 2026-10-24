@@ -121,7 +121,27 @@ py -3.11 -m venv .venv
 
 # Install package with development and agent dependencies
 python -m pip install -e ".[dev,agents]"
+
+# Alternative: install all runtime, agent, and development dependencies
+python -m pip install -r requirements.txt
 ```
+
+`pyproject.toml` remains the canonical package configuration; `requirements.txt`
+is provided as a convenient all-in-one installation file.
+
+### Database migrations
+
+The API and seed command apply Alembic migrations automatically. To migrate a
+database explicitly:
+
+```powershell
+python -m scripts.migrate_database
+# or, after editable installation:
+salespod-migrate
+```
+
+Existing databases from the pre-Alembic local slice are detected and upgraded
+without dropping CRM data. New databases are created at the latest revision.
 
 ### 2. Seed the Synthetic CRM
 
@@ -131,7 +151,7 @@ Generate 80 companies, 500 leads, 120 deals, 1,500 email threads, and 60 call tr
 python -m scripts.seed_database --reset
 ```
 
-*This creates `data/salespod.db` and the evaluation file `data/ground_truth.json`.*
+*This resets the database through Alembic, creates `data/salespod.db`, and writes the evaluation file `data/ground_truth.json`.*
 
 ### 3. Run the CLI Agent
 
@@ -230,6 +250,4 @@ python -m pytest
 # Run Ruff linter and formatter checks
 ruff check .
 ```
-
-
 

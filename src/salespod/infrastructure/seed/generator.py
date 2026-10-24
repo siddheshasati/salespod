@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from salespod.domain.enums import ActivityType, DealStage, LeadStatus
 from salespod.infrastructure.db.models import (
     Activity,
-    Base,
     CallTranscript,
     Company,
     Deal,
@@ -24,7 +23,7 @@ from salespod.infrastructure.db.models import (
     EmailThread,
     Lead,
 )
-from salespod.infrastructure.db.session import build_engine
+from salespod.infrastructure.db.session import build_engine, migrate_database, reset_database
 
 SEED_NAMESPACE = UUID("7efc8d77-54c6-4d59-b4be-07c9c4b6f70a")
 COMPANY_COUNT = 80
@@ -398,10 +397,11 @@ def seed_database(
     truth_output: str | Path | None = None,
 ) -> SeedResult:
     """Seed a database and optionally write the evaluation manifest."""
-    engine = build_engine(database_url)
     if reset:
-        Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+        reset_database(database_url)
+    else:
+        migrate_database(database_url)
+    engine = build_engine(database_url)
     records, manifest = SyntheticCrmGenerator(seed=seed, as_of=as_of).generate()
     with Session(engine) as session:
         # Insert in dependency order. These are intentionally explicit rather

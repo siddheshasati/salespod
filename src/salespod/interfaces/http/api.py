@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from salespod.agents.graph import build_graph
 from salespod.application.crm_service import CrmService
+from salespod.application.policy import PolicyEngine
 from salespod.config import Settings
 from salespod.domain.contracts import (
     GetDealResponse,
@@ -23,16 +24,20 @@ from salespod.domain.errors import ConflictError, NotFoundError, SalesPodError, 
 from salespod.infrastructure.db.session import create_schema, create_session_factory
 
 from .approvals import ApprovalRepository
+from .audit import AuditRepository
 from .dashboard import DashboardRepository
 from .schemas import (
     AgentAskRequest,
     AgentAskResponse,
     ApprovalDecisionRequest,
     ApprovalRecord,
+    AuditEventSummary,
     DashboardOverview,
     DashboardPipelineTotals,
     ErrorResponse,
     HealthResponse,
+    PolicyEvaluationRequest,
+    PolicyEvaluationResponse,
     StageChangeRequest,
 )
 
@@ -65,6 +70,10 @@ def _approvals(request: Request) -> ApprovalRepository:
 
 def _dashboard(request: Request) -> DashboardRepository:
     return request.app.state.dashboard
+
+
+def _audit(request: Request) -> AuditRepository:
+    return request.app.state.audit
 
 
 def _graph(request: Request) -> SalesPodGraph:
@@ -110,7 +119,9 @@ def create_app(
     app.state.session_factory = session_factory
     app.state.approvals = ApprovalRepository(session_factory)
     app.state.dashboard = DashboardRepository(session_factory)
+    app.state.audit = AuditRepository(session_factory)
     app.state.graph = graph
+    app.state.policy = PolicyEngine()
 
     @app.exception_handler(SalesPodError)
     async def handle_salespod_error(_request: Request, exc: SalesPodError) -> JSONResponse:
@@ -130,6 +141,7 @@ def create_app(
         service: Annotated[CrmService, Depends(_service)],
         dashboard: Annotated[DashboardRepository, Depends(_dashboard)],
         approvals: Annotated[ApprovalRepository, Depends(_approvals)],
+        audit: Annotated[AuditRepository, Depends(_audit)],
     ) -> DashboardOverview:
         snapshot = service.get_pipeline_snapshot()
         return DashboardOverview(
@@ -143,6 +155,7 @@ def create_app(
             stage_summaries=snapshot.stages,
             risk_counts=approvals.risk_counts(),
             recent_activities=dashboard.recent_activities(),
+            recent_audit_events=audit.list(limit=10),
         )
 
     @app.get("/api/leads", tags=["crm"])
@@ -177,6 +190,33 @@ def create_app(
         decision: ApprovalDecisionRequest,
     ) -> ApprovalRecord:
         return approval_repository.decide(approval_id, decision)
+
+    @app.get("/api/audit/events", response_model=list[AuditEventSummary], tags=["audit"])
+    def audit_events(
+        audit: Annotated[AuditRepository, Depends(_audit)],
+        limit: int = Query(default=50, ge=1, le=200),
+    ) -> list[AuditEventSummary]:
+        return audit.list(limit=limit)
+
+    @app.post(
+        "/api/policy/evaluate",
+        response_model=PolicyEvaluationResponse,
+        tags=["policy"],
+    )
+    def evaluate_policy(
+        request: PolicyEvaluationRequest,
+    ) -> PolicyEvaluationResponse:
+        decision = app.state.policy.evaluate(
+            request.action,
+            discount_percent=request.discount_percent,
+            executive_outreach=request.executive_outreach,
+        )
+        return PolicyEvaluationResponse(
+            action=decision.action,
+            outcome=decision.outcome,
+            reason=decision.reason,
+            threshold=decision.threshold,
+        )
 
     @app.post("/api/agent/ask", response_model=AgentAskResponse, tags=["agent"])
     def agent_ask(

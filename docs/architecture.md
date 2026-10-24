@@ -60,13 +60,20 @@ tests/                              offline unit/integration/contract tests
 | `log_activity` | append an auditable activity | yes |
 | `get_pipeline_snapshot` | stage totals and weighted forecast | no |
 
+The HTTP control plane adds durable `approval_requests` and `audit_events`
+tables. Approval candidates are synchronized from transcript evidence, while
+approval decisions, stage changes, and logged activities append audit events.
+The policy engine currently auto-approves low-risk CRM reads/notes/stage
+updates and escalates discounts above 15%, executive outreach, and contract
+changes.
+
 Mutation tools are only reachable from the graph when the manager request is
 explicitly an update/log request. A natural-language question cannot silently
 change CRM state.
 
 ## Production hardening path
 
-1. Add Alembic migrations and PostgreSQL row-level authorization.
+1. Replace the additive SQLite schema guard with Alembic migrations and PostgreSQL row-level authorization.
 2. Put the HTTP MCP transport behind OAuth/service identity, rate limits, and
    an allow-list of mutation scopes.
 3. Add Supervisor routing for research, writer, scheduler, strategist, coach,
@@ -74,6 +81,5 @@ change CRM state.
 4. Add event ingestion with an outbox/inbox and replayable signal events.
 5. Add vector storage for playbooks using `nomic-embed-text`; keep CRM lexical
    search as a deterministic fallback.
-6. Add approval records for high-risk actions and immutable audit events.
-7. Add forecast evidence trails, planted-truth evaluation, and dashboard
+6. Add forecast evidence trails, planted-truth evaluation, and dashboard
    metrics before exposing the system to real customer data.

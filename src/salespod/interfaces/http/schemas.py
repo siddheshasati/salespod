@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from salespod.application.policy import ActionKind, PolicyOutcome
 from salespod.domain.contracts import ActivitySummary, PipelineStageSummary
 from salespod.domain.enums import DealStage
 
@@ -35,12 +36,23 @@ class DashboardRiskCounts(ApiModel):
     by_type: dict[str, int] = Field(default_factory=dict)
 
 
+class AuditEventSummary(ApiModel):
+    id: UUID
+    event_type: str
+    actor: str
+    entity_type: str
+    entity_id: str
+    occurred_at: datetime
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class DashboardOverview(ApiModel):
     generated_at: datetime
     pipeline_totals: DashboardPipelineTotals
     stage_summaries: list[PipelineStageSummary]
     risk_counts: DashboardRiskCounts
     recent_activities: list[ActivitySummary]
+    recent_audit_events: list[AuditEventSummary]
 
 
 class ApprovalStatus(StrEnum):
@@ -82,6 +94,19 @@ class ApprovalDecisionRequest(ApiModel):
     decision: ApprovalDecision
     actor: str = Field(min_length=1, max_length=120)
     note: str | None = Field(default=None, min_length=1, max_length=500)
+
+
+class PolicyEvaluationRequest(ApiModel):
+    action: ActionKind
+    discount_percent: float | None = Field(default=None, ge=0, le=100)
+    executive_outreach: bool = False
+
+
+class PolicyEvaluationResponse(ApiModel):
+    action: ActionKind
+    outcome: PolicyOutcome
+    reason: str
+    threshold: str | None = None
 
 
 class ErrorResponse(ApiModel):

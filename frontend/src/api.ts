@@ -1,6 +1,7 @@
 import type {
   AgentAskResponse,
   ApprovalRecord,
+  AuditEventSummary,
   DashboardOverview,
   DealResponse,
   DealStage,
@@ -30,6 +31,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   getOverview: () => request<DashboardOverview>('/api/dashboard/overview'),
   getApprovals: () => request<ApprovalRecord[]>('/api/approvals'),
+  getAuditEvents: () => request<AuditEventSummary[]>('/api/audit/events?limit=100'),
   getDeal: (dealId: string) => request<DealResponse>(`/api/deals/${dealId}`),
   searchLeads: (query: string) =>
     request<SearchLeadsResponse>(`/api/leads?query=${encodeURIComponent(query)}&limit=8`),

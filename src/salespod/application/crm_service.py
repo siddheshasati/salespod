@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -26,8 +26,18 @@ from salespod.domain.contracts import (
 )
 from salespod.domain.enums import ActivityType, DealStage, LeadStatus
 from salespod.domain.errors import ConflictError, NotFoundError, ValidationError
-from salespod.infrastructure.db.models import Activity, Company, Deal, DealStageHistory, Lead
+from salespod.infrastructure.db.models import (
+    Activity,
+    AuditEvent,
+    CallTranscript,
+    Company,
+    Deal,
+    DealStageHistory,
+    Lead,
+)
 from salespod.infrastructure.db.repositories import new_uuid, now_utc
+
+from .policy import ActionKind, PolicyEngine, PolicyOutcome
 
 _STAGE_ORDER = list(DealStage)
 _PROBABILITY = {
@@ -75,6 +85,7 @@ class CrmService:
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self.session_factory = session_factory
+        self.policy = PolicyEngine()
 
     def search_leads(self, request: SearchLeadsRequest) -> SearchLeadsResponse:
         offset = _decode_cursor(request.cursor)
@@ -144,6 +155,9 @@ class CrmService:
                     )
                 if request.new_stage == current_stage:
                     raise ValidationError("new stage must differ from the current stage")
+                policy = self.policy.evaluate(ActionKind.STAGE_UPDATE)
+                if policy.outcome is not PolicyOutcome.AUTO_APPROVED:
+                    raise ConflictError(policy.reason)
                 if request.new_stage not in _ALLOWED_TRANSITIONS[current_stage]:
                     raise ValidationError(
                         f"cannot move a deal from {current_stage.value} "
@@ -179,6 +193,23 @@ class CrmService:
                             metadata_json={"stage_history_id": history.id},
                         )
                     )
+                session.add(
+                    AuditEvent(
+                        id=new_uuid(),
+                        event_type="deal.stage_updated",
+                        actor=request.actor,
+                        entity_type="deal",
+                        entity_id=deal.id,
+                        occurred_at=occurred_at,
+                        payload_json={
+                            "from_stage": current_stage.value,
+                            "to_stage": request.new_stage.value,
+                            "reason": request.reason,
+                            "version": deal.version,
+                            "policy": policy.outcome.value,
+                        },
+                    )
+                )
                 session.flush()
                 return UpdateStageResponse(
                     deal=self._deal_detail(deal), stage_change=self._stage_change(history)
@@ -218,6 +249,22 @@ class CrmService:
                     metadata_json=request.metadata,
                 )
                 session.add(activity)
+                session.add(
+                    AuditEvent(
+                        id=new_uuid(),
+                        event_type="activity.logged",
+                        actor=request.actor,
+                        entity_type="activity",
+                        entity_id=activity.id,
+                        occurred_at=occurred_at,
+                        payload_json={
+                            "activity_type": request.activity_type.value,
+                            "company_id": company_id,
+                            "lead_id": lead_id,
+                            "deal_id": deal_id,
+                        },
+                    )
+                )
                 session.flush()
                 return LogActivityResponse(activity=self._activity_summary(activity))
 
@@ -261,6 +308,76 @@ class CrmService:
                 round(deal.amount_minor * deal.probability) for deal in deals
             ),
         )
+
+    def analyze_q4_risk(self) -> dict[str, Any]:
+        """Return a compact, evidence-backed explanation of forecast risk."""
+        cutoff = now_utc() - timedelta(days=21)
+        with self.session_factory() as session:
+            stalled = session.scalars(
+                select(Deal)
+                .where(
+                    Deal.stage == DealStage.NEGOTIATION.value,
+                    Deal.stage_entered_at <= cutoff,
+                )
+                .order_by(Deal.stage_entered_at.asc(), Deal.id)
+            ).all()
+            risk_calls = session.scalars(
+                select(CallTranscript).where(
+                    or_(
+                        func.lower(CallTranscript.summary).like("%economic buyer%"),
+                        func.lower(CallTranscript.transcript).like("%economic buyer%"),
+                    )
+                )
+            ).all()
+            competitor_calls = session.scalars(
+                select(CallTranscript).where(
+                    func.lower(CallTranscript.transcript).like("%also looking at%")
+                )
+            ).all()
+            stalled_rows = [
+                {
+                    "deal_id": deal.id,
+                    "deal_name": deal.name,
+                    "amount_minor": deal.amount_minor,
+                    "stage": deal.stage,
+                    "days_in_stage": max(
+                        0, (now_utc() - _utc(deal.stage_entered_at)).days
+                    ),
+                }
+                for deal in stalled
+            ]
+            risk_rows = [
+                {
+                    "call_id": call.id,
+                    "deal_id": call.deal_id,
+                    "summary": call.summary,
+                    "occurred_at": _utc(call.occurred_at).isoformat(),
+                }
+                for call in risk_calls
+            ]
+            competitor_rows = [
+                {
+                    "call_id": call.id,
+                    "deal_id": call.deal_id,
+                    "summary": call.summary,
+                    "occurred_at": _utc(call.occurred_at).isoformat(),
+                }
+                for call in competitor_calls
+            ]
+        summary = (
+            f"Q4 risk is concentrated in {len(stalled_rows)} negotiation deal(s) stalled "
+            f"for more than 21 days. {len(risk_rows)} call transcript(s) flag a missing "
+            f"economic buyer, and {len(competitor_rows)} mention an active competitor."
+        )
+        return {
+            "summary": summary,
+            "stalled_negotiation_count": len(stalled_rows),
+            "missing_economic_buyer_count": len(risk_rows),
+            "competitor_mention_count": len(competitor_rows),
+            "stalled_deals": stalled_rows,
+            "economic_buyer_evidence": risk_rows,
+            "competitor_evidence": competitor_rows,
+        }
 
     @staticmethod
     def _lead_query(request: SearchLeadsRequest) -> Select[Any]:

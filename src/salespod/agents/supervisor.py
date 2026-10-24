@@ -27,6 +27,9 @@ def route_request(request: str, *, actor: str = "manager") -> Route:
     lower = text.lower()
     ids = [UUID(match) for match in UUID_PATTERN.findall(text)]
 
+    if "q4" in lower and any(token in lower for token in ("miss", "risk", "forecast")):
+        return Route("q4_risk", "analyze_q4_risk", {})
+
     if any(
         token in lower for token in ("pipeline snapshot", "pipeline forecast", "current pipeline")
     ):

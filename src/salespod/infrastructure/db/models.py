@@ -108,6 +108,7 @@ class CallTranscript(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     company_id: Mapped[str] = mapped_column(String(36), ForeignKey("companies.id"), nullable=False)
     lead_id: Mapped[str] = mapped_column(String(36), ForeignKey("leads.id"), nullable=False)
+    deal_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("deals.id"), nullable=True)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     transcript: Mapped[str] = mapped_column(Text, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -147,3 +148,41 @@ class DealStageHistory(Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     actor: Mapped[str] = mapped_column(String(120), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ApprovalRequest(Base):
+    __tablename__ = "approval_requests"
+    __table_args__ = (
+        UniqueConstraint("risk_type", "source_id", name="uq_approval_requests_risk_source"),
+        Index("ix_approval_requests_status", "status"),
+        Index("ix_approval_requests_deal_id", "deal_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    risk_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    source_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    deal_id: Mapped[str] = mapped_column(String(36), ForeignKey("deals.id"), nullable=False)
+    company_id: Mapped[str] = mapped_column(String(36), ForeignKey("companies.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    __table_args__ = (
+        Index("ix_audit_events_occurred_at", "occurred_at"),
+        Index("ix_audit_events_entity", "entity_type", "entity_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)

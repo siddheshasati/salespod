@@ -35,6 +35,8 @@ def _deterministic_response(tool_name: str | None, observation: dict[str, Any] |
             f"Pipeline has {observation.get('total_count', 0)} deal(s) worth ${amount:,.0f}; "
             f"weighted coverage is ${weighted:,.0f}."
         )
+    if tool_name == "analyze_q4_risk":
+        return str(observation.get("summary", "No Q4 risk analysis was produced."))
     if tool_name == "get_deal":
         deal = observation.get("deal", {})
         return (

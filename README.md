@@ -177,6 +177,18 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser. The Vite dev server proxies `/api` calls directly to the FastAPI backend.
 
+The command center's approval inbox is backed by SQLite rather than process
+memory. Approval decisions survive an API restart, and stage changes, logged
+activities, and approval decisions are available through:
+
+```text
+GET  /api/audit/events
+POST /api/policy/evaluate
+```
+
+The supervisor also supports `Why will we miss Q4?` with structured evidence
+for stalled negotiation deals, missing economic buyers, and competitor mentions.
+
 ### Production Build
 
 ```powershell
@@ -218,7 +230,6 @@ python -m pytest
 # Run Ruff linter and formatter checks
 ruff check .
 ```
-
 
 
 

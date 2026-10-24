@@ -53,13 +53,14 @@ import { api } from './api'
 import type {
   ActivitySummary,
   ApprovalRecord,
+  AuditEventSummary,
   DashboardOverview,
   DealResponse,
   DealStage,
   LeadSummary,
 } from './types'
 
-type View = 'overview' | 'pipeline' | 'approvals' | 'signals'
+type View = 'overview' | 'pipeline' | 'approvals' | 'signals' | 'audit'
 
 const stageLabels: Record<DealStage, string> = {
   discovery: 'Discovery',
@@ -84,6 +85,7 @@ const navItems: Array<{ id: View; label: string; icon: typeof LayoutDashboard; b
   { id: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
   { id: 'approvals', label: 'Approval inbox', icon: Inbox, badge: '5' },
   { id: 'signals', label: 'Signal radar', icon: Radio, badge: 'live' },
+  { id: 'audit', label: 'Audit log', icon: Activity },
 ]
 
 function money(minor: number, currency = 'USD') {
@@ -112,6 +114,15 @@ function relativeDate(value: string) {
   if (days === 0) return 'Today'
   if (days === 1) return 'Yesterday'
   return `${days}d ago`
+}
+
+function todayLabel() {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date())
 }
 
 function initials(name: string) {
@@ -239,16 +250,16 @@ function Sidebar({
           <div className="mt-9">
             <p className="eyebrow mb-3 px-3">Intelligence</p>
             <div className="space-y-1.5">
-              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-ink">
+              <div className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-semibold text-slate-400">
                 <Target size={17} strokeWidth={1.8} />
                 <span className="flex-1">Playbook memory</span>
                 <span className="text-[9px] font-bold uppercase tracking-[0.08em]">Soon</span>
-              </button>
-              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-ink">
+              </div>
+              <div className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[13px] font-semibold text-slate-400">
                 <BarChart3 size={17} strokeWidth={1.8} />
                 <span className="flex-1">Learning loop</span>
                 <span className="text-[9px] font-bold uppercase tracking-[0.08em]">Soon</span>
-              </button>
+              </div>
             </div>
           </div>
         )}
@@ -317,10 +328,10 @@ function TopBar({
         <button onClick={onRefresh} className="icon-button" title="Refresh workspace" disabled={refreshing}>
           <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
         </button>
-        <button className="icon-button relative" title="Notifications">
+        <span className="icon-button relative" title="Notifications">
           <Bell size={17} />
           <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-coral ring-2 ring-[#f8fafb]" />
-        </button>
+        </span>
         <div className="hidden h-8 w-px bg-slate-200 sm:block" />
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f0d8c9] text-[11px] font-extrabold text-[#9d5137]">SA</div>
@@ -426,7 +437,7 @@ function PipelineChart({ overview }: { overview: DashboardOverview }) {
           <h2 className="section-title mt-1.5 text-[17px]">Revenue coverage by stage</h2>
           <p className="muted mt-1 text-xs">Gross pipeline compared with probability-weighted value</p>
         </div>
-        <button className="icon-button"><MoreHorizontal size={18} /></button>
+        <span className="flex h-9 w-9 items-center justify-center text-slate-400"><MoreHorizontal size={18} /></span>
       </div>
       <div className="mt-7 h-[245px] w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -452,7 +463,7 @@ function PipelineChart({ overview }: { overview: DashboardOverview }) {
   )
 }
 
-function StageBreakdown({ overview }: { overview: DashboardOverview }) {
+function StageBreakdown({ overview, onOpenPipeline }: { overview: DashboardOverview; onOpenPipeline: () => void }) {
   const max = Math.max(...overview.stage_summaries.map((stage) => stage.amount_minor), 1)
   return (
     <div className="card p-5 sm:p-6">
@@ -461,7 +472,7 @@ function StageBreakdown({ overview }: { overview: DashboardOverview }) {
           <p className="eyebrow">Pipeline mix</p>
           <h2 className="section-title mt-1.5 text-[17px]">Stage breakdown</h2>
         </div>
-        <button className="secondary-button px-3 py-2 text-[11px]"><Filter size={13} /> Filter</button>
+        <button className="secondary-button px-3 py-2 text-[11px]" onClick={onOpenPipeline}><Filter size={13} /> Open pipeline</button>
       </div>
       <div className="mt-6 space-y-4">
         {overview.stage_summaries.map((stage) => (
@@ -499,11 +510,13 @@ function ApprovalInbox({
   busyId,
   onSelect,
   onDecision,
+  onReviewQueue,
 }: {
   approvals: ApprovalRecord[]
   busyId: string | null
   onSelect: (approval: ApprovalRecord) => void
   onDecision: (approval: ApprovalRecord, decision: 'approved' | 'rejected') => void
+  onReviewQueue: () => void
 }) {
   return (
     <div className="card overflow-hidden">
@@ -516,7 +529,7 @@ function ApprovalInbox({
           <h2 className="section-title mt-1.5 text-[17px]">Approval inbox</h2>
           <p className="muted mt-1 text-xs">Evidence-backed actions waiting for a manager decision</p>
         </div>
-        <button className="secondary-button px-3 py-2 text-[11px]" onClick={() => approvals[0] && onSelect(approvals[0])}>Review queue <ChevronRight size={13} /></button>
+        <button className="secondary-button px-3 py-2 text-[11px]" onClick={onReviewQueue}>Review queue <ChevronRight size={13} /></button>
       </div>
       <div className="divide-y divide-slate-100">
         {approvals.slice(0, 4).map((approval) => (
@@ -560,14 +573,14 @@ function ApprovalInbox({
       </div>
       {approvals.length > 4 && (
         <div className="border-t border-slate-100 px-5 py-3 text-center sm:px-6">
-          <button className="text-[11px] font-bold text-coral hover:text-[#d95d3e]" onClick={() => approvals[4] && onSelect(approvals[4])}>View all {approvals.length} evidence items</button>
+          <button className="text-[11px] font-bold text-coral hover:text-[#d95d3e]" onClick={onReviewQueue}>View all {approvals.length} evidence items</button>
         </div>
       )}
     </div>
   )
 }
 
-function ActivityFeed({ activities }: { activities: ActivitySummary[] }) {
+function ActivityFeed({ activities, onOpenAudit }: { activities: ActivitySummary[]; onOpenAudit: () => void }) {
   return (
     <div className="card p-5 sm:p-6">
       <div className="flex items-start justify-between">
@@ -575,7 +588,7 @@ function ActivityFeed({ activities }: { activities: ActivitySummary[] }) {
           <p className="eyebrow">Audit trail</p>
           <h2 className="section-title mt-1.5 text-[17px]">Pod activity</h2>
         </div>
-        <button className="icon-button"><MoreHorizontal size={18} /></button>
+        <span className="flex h-9 w-9 items-center justify-center text-slate-400"><MoreHorizontal size={18} /></span>
       </div>
       <div className="mt-5 space-y-1">
         {activities.slice(0, 6).map((activity) => (
@@ -588,7 +601,7 @@ function ActivityFeed({ activities }: { activities: ActivitySummary[] }) {
           </div>
         ))}
       </div>
-      <button className="mt-3 flex items-center gap-1 text-[11px] font-bold text-coral hover:text-[#d95d3e]">Open audit log <ArrowUpRight size={13} /></button>
+      <button onClick={onOpenAudit} className="mt-3 flex items-center gap-1 text-[11px] font-bold text-coral hover:text-[#d95d3e]">Open audit log <ArrowUpRight size={13} /></button>
     </div>
   )
 }
@@ -653,12 +666,14 @@ function SupervisorPanel({
   messages,
   input,
   onInput,
+  onSuggestion,
   onSubmit,
   loading,
 }: {
   messages: Array<{ role: 'assistant' | 'user'; text: string }>
   input: string
   onInput: (value: string) => void
+  onSuggestion: (value: string) => void
   onSubmit: (event: FormEvent) => void
   loading: boolean
 }) {
@@ -682,7 +697,7 @@ function SupervisorPanel({
         {loading && <div className="flex justify-start"><div className="rounded-2xl rounded-bl-md bg-white/10 px-3.5 py-2.5"><Loader2 size={14} className="animate-spin text-slate-300" /></div></div>}
       </div>
       <div className="relative mt-5 flex flex-wrap gap-1.5">
-        {suggestions.map((suggestion) => <button key={suggestion} onClick={() => onInput(suggestion)} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[9px] font-semibold text-slate-300 transition hover:border-white/25 hover:text-white">{suggestion}</button>)}
+        {suggestions.map((suggestion) => <button key={suggestion} onClick={() => onSuggestion(suggestion)} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[9px] font-semibold text-slate-300 transition hover:border-white/25 hover:text-white">{suggestion}</button>)}
       </div>
       <form onSubmit={onSubmit} className="relative mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 p-1.5 focus-within:border-white/25">
         <input value={input} onChange={(event) => onInput(event.target.value)} placeholder="Ask about your revenue..." className="min-w-0 flex-1 bg-transparent px-2 text-xs text-white outline-none placeholder:text-slate-500" />
@@ -694,11 +709,13 @@ function SupervisorPanel({
 
 function DealDrawer({
   deal,
+  approval,
   loading,
   onClose,
   onStageUpdate,
 }: {
   deal: DealResponse | null
+  approval: ApprovalRecord | null
   loading: boolean
   onClose: () => void
   onStageUpdate: (stage: DealStage, reason: string) => Promise<void>
@@ -749,6 +766,15 @@ function DealDrawer({
             </div>
 
             <div className="mt-7">
+              {approval && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                  <div className="flex items-center gap-2"><ShieldAlert size={15} className="text-amber-600" /><h3 className="text-sm font-bold text-amber-900">Why this is flagged</h3></div>
+                  {approval.evidence.map((item) => <div key={item.source_id} className="mt-3"><p className="text-xs leading-relaxed text-amber-900/80">{item.summary}</p><p className="mt-1 text-[10px] font-medium text-amber-700/70">Call transcript · {formatDate(item.occurred_at)}</p></div>)}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-7">
               <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-ink">Update stage</h3><span className="text-[10px] font-medium text-slate-400">Version {deal.deal.version}</span></div>
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <select value={stage} onChange={(event) => setStage(event.target.value as DealStage)} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-ink outline-none focus:border-slate-300">
@@ -789,7 +815,26 @@ function SignalRadar({ overview, approvals }: { overview: DashboardOverview; app
         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Call intelligence</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">60</p><p className="mt-1 text-[11px] text-slate-400">Transcripts ready for coaching</p></div>
         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Activities observed</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{overview.recent_activities.length}</p><p className="mt-1 text-[11px] text-slate-400">Latest actions in the CRM feed</p></div>
       </div>
-      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4"><Sparkles size={17} className="shrink-0 text-coral" /><p className="text-xs leading-relaxed text-slate-500"><span className="font-bold text-ink">Next signal source:</span> funding, leadership, layoffs, and tech-stack changes will trigger research and personalized outreach in the next pod release.</p></div>
+      <div className="mt-5 space-y-2">
+        {approvals.slice(0, 5).map((approval) => (
+          <div key={approval.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3.5">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600"><AlertTriangle size={14} /></div>
+            <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-bold text-ink">Economic buyer risk · {approval.company_name}</p><span className="text-[10px] font-medium text-slate-400">{relativeDate(approval.created_at)}</span></div><p className="mt-1 text-[11px] leading-relaxed text-slate-500">{approval.evidence[0]?.summary ?? 'Evidence available in the deal record.'}</p></div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4"><Sparkles size={17} className="shrink-0 text-coral" /><p className="text-xs leading-relaxed text-slate-500"><span className="font-bold text-ink">Connected signal source:</span> seeded call intelligence is producing real risk events. Funding, leadership, layoffs, and tech-stack events can plug into the same feed.</p></div>
+    </div>
+  )
+}
+
+function AuditLog({ events }: { events: AuditEventSummary[] }) {
+  return (
+    <div className="card overflow-hidden">
+      <div className="border-b border-slate-100 p-5 sm:p-6"><p className="eyebrow">Immutable trail</p><h2 className="section-title mt-1.5 text-[17px]">Audit events</h2><p className="muted mt-1 text-xs">Every persisted approval and CRM mutation is visible here.</p></div>
+      <div className="divide-y divide-slate-100">
+        {events.length === 0 ? <div className="p-8 text-center text-xs text-slate-400">No audit events yet.</div> : events.map((event) => <div key={event.id} className="flex gap-3 px-5 py-4 sm:px-6"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500"><ShieldCheck size={15} /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-bold text-ink">{event.event_type.replaceAll('.', ' ')}</p><span className="text-[10px] text-slate-400">{relativeDate(event.occurred_at)}</span></div><p className="mt-1 text-[11px] text-slate-500">{event.actor} · {event.entity_type} {event.entity_id}</p><pre className="mt-2 overflow-x-auto rounded-lg bg-slate-50 p-2 text-[10px] leading-relaxed text-slate-500">{JSON.stringify(event.payload)}</pre></div></div>)}
+      </div>
     </div>
   )
 }
@@ -818,6 +863,7 @@ export default function App() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
   const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
+  const [auditEvents, setAuditEvents] = useState<AuditEventSummary[]>([])
   const [leads, setLeads] = useState<LeadSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -846,6 +892,7 @@ export default function App() {
       setOverview(overviewResult)
       setApprovals(approvalsResult)
       setLeads(leadsResult.items)
+      setAuditEvents(overviewResult.recent_audit_events)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to load the revenue workspace.')
     } finally {
@@ -857,6 +904,16 @@ export default function App() {
   useEffect(() => {
     void loadWorkspace(true)
   }, [loadWorkspace])
+
+  useEffect(() => {
+    if (activeView !== 'audit') return
+    void api
+      .getAuditEvents()
+      .then(setAuditEvents)
+      .catch((cause: unknown) => {
+        setError(cause instanceof Error ? cause.message : 'Unable to load the audit log.')
+      })
+  }, [activeView])
 
   const handleNavigate = (view: View) => {
     setActiveView(view)
@@ -914,7 +971,9 @@ export default function App() {
     try {
       const result = await api.decideApproval(approval.id, decision, `Reviewed in the command center.`)
       setApprovals((current) => current.map((item) => (item.id === result.id ? result : item)))
-      setOverview(await api.getOverview())
+      const refreshedOverview = await api.getOverview()
+      setOverview(refreshedOverview)
+      setAuditEvents(refreshedOverview.recent_audit_events)
       if (selectedApproval?.id === result.id) setSelectedApproval(result)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to save the approval decision.')
@@ -925,7 +984,10 @@ export default function App() {
 
   const handleAskAgent = async (event: FormEvent) => {
     event.preventDefault()
-    const prompt = agentInput.trim()
+    await askAgent(agentInput.trim())
+  }
+
+  const askAgent = async (prompt: string) => {
     if (!prompt || agentLoading) return
     setAgentInput('')
     setAgentMessages((current) => [...current, { role: 'user', text: prompt }])
@@ -938,6 +1000,10 @@ export default function App() {
     } finally {
       setAgentLoading(false)
     }
+  }
+
+  const handleSuggestion = (prompt: string) => {
+    void askAgent(prompt)
   }
 
   const handleStageUpdate = async (stage: DealStage, reason: string) => {
@@ -955,23 +1021,25 @@ export default function App() {
   const pageCopy = useMemo(() => {
     if (activeView === 'pipeline') return { eyebrow: 'Pipeline command', title: 'See the shape of your quarter.', subtitle: 'Weighted coverage, stage friction, and the deals that need a sharper next step.' }
     if (activeView === 'approvals') return { eyebrow: 'Human in the loop', title: 'Keep autonomy accountable.', subtitle: 'Review evidence-backed decisions before they become customer-facing actions.' }
-    if (activeView === 'signals') return { eyebrow: 'Event-driven intelligence', title: 'Signals before the meeting.', subtitle: 'The pod is preparing to turn market movement into timely, relevant action.' }
-    return { eyebrow: 'Thursday, October 22, 2026', title: 'Good morning, Siddhesh.', subtitle: 'Your pod is online. Here is what changed while you were away.' }
+    if (activeView === 'signals') return { eyebrow: 'Event-driven intelligence', title: 'Signals before the meeting.', subtitle: 'Evidence from calls and CRM activity is already turning into timely action.' }
+    if (activeView === 'audit') return { eyebrow: 'Immutable trail', title: 'See what the pod changed.', subtitle: 'Every persisted approval and CRM mutation has a traceable actor, entity, and payload.' }
+    return { eyebrow: todayLabel(), title: 'Good morning, Siddhesh.', subtitle: 'Your pod is online. Here is what changed while you were away.' }
   }, [activeView])
 
   const content = overview ? (
     <>
       {(activeView === 'overview' || activeView === 'pipeline') && <OverviewMetrics overview={overview} />}
       {(activeView === 'overview' || activeView === 'pipeline') && (
-        <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><PipelineChart overview={overview} /><StageBreakdown overview={overview} /></div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><PipelineChart overview={overview} /><StageBreakdown overview={overview} onOpenPipeline={() => handleNavigate('pipeline')} /></div>
       )}
       {(activeView === 'overview' || activeView === 'approvals') && (
-        <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><ApprovalInbox approvals={approvals} busyId={approvalBusy} onSelect={handleSelectApproval} onDecision={handleDecision} /><ActivityFeed activities={overview.recent_activities} /></div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><ApprovalInbox approvals={approvals} busyId={approvalBusy} onSelect={handleSelectApproval} onDecision={handleDecision} onReviewQueue={() => handleNavigate('approvals')} /><ActivityFeed activities={overview.recent_activities} onOpenAudit={() => handleNavigate('audit')} /></div>
       )}
-      {activeView === 'overview' && <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><LeadSearch leads={leads} query={leadQuery} onQueryChange={setLeadQuery} onSubmit={handleLeadSearch} loading={leadSearchLoading} /><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
+      {activeView === 'overview' && <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><LeadSearch leads={leads} query={leadQuery} onQueryChange={setLeadQuery} onSubmit={handleLeadSearch} loading={leadSearchLoading} /><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSuggestion={handleSuggestion} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
       {activeView === 'pipeline' && <div className="mt-5"><LeadSearch leads={leads} query={leadQuery} onQueryChange={setLeadQuery} onSubmit={handleLeadSearch} loading={leadSearchLoading} /></div>}
-      {activeView === 'approvals' && <div className="mt-5"><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
-      {activeView === 'signals' && <><SignalRadar overview={overview} approvals={approvals} /><div className="mt-5"><ActivityFeed activities={overview.recent_activities} /></div></>}
+      {activeView === 'approvals' && <div className="mt-5"><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSuggestion={handleSuggestion} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
+      {activeView === 'signals' && <><SignalRadar overview={overview} approvals={approvals} /><div className="mt-5"><ActivityFeed activities={overview.recent_activities} onOpenAudit={() => handleNavigate('audit')} /></div></>}
+      {activeView === 'audit' && <AuditLog events={auditEvents} />}
     </>
   ) : (
     <div className="card flex min-h-[420px] items-center justify-center"><Loader2 className="animate-spin text-coral" size={24} /></div>
@@ -993,7 +1061,7 @@ export default function App() {
         </div>
       </main>
       <MobileNav activeView={activeView} onNavigate={handleNavigate} />
-      {(selectedApproval || dealLoading) && <DealDrawer deal={selectedDeal} loading={dealLoading} onClose={() => { setSelectedApproval(null); setSelectedDeal(null) }} onStageUpdate={handleStageUpdate} />}
+      {(selectedApproval || dealLoading) && <DealDrawer deal={selectedDeal} approval={selectedApproval} loading={dealLoading} onClose={() => { setSelectedApproval(null); setSelectedDeal(null) }} onStageUpdate={handleStageUpdate} />}
     </div>
   )
 }

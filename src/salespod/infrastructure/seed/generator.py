@@ -302,6 +302,7 @@ class SyntheticCrmGenerator:
                     id=stable_id("call", index),
                     company_id=deal.company_id,
                     lead_id=lead.id,
+                    deal_id=deal.id,
                     summary=summary,
                     transcript=transcript,
                     occurred_at=occurred_at,

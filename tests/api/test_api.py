@@ -87,3 +87,39 @@ def test_api_maps_crm_errors_to_stable_http_responses(seeded_service) -> None:
 
     invalid_limit = client.get("/api/leads", params={"limit": 0})
     assert invalid_limit.status_code == 422
+
+
+def test_approval_decision_and_audit_events_survive_a_new_app_instance(seeded_service) -> None:
+    first_client = TestClient(create_app(seeded_service))
+    approval = first_client.get("/api/approvals").json()[0]
+    decision = first_client.post(
+        f"/api/approvals/{approval['id']}/decision",
+        json={"decision": "approved", "actor": "manager", "note": "Evidence reviewed."},
+    )
+    assert decision.status_code == 200
+    assert decision.json()["status"] == "approved"
+
+    second_client = TestClient(create_app(seeded_service))
+    persisted = second_client.get("/api/approvals").json()
+    restored = next(item for item in persisted if item["id"] == approval["id"])
+    assert restored["status"] == "approved"
+    assert restored["decided_by"] == "manager"
+
+    audit = second_client.get("/api/audit/events", params={"limit": 20})
+    assert audit.status_code == 200
+    assert any(item["event_type"] == "approval.decided" for item in audit.json())
+
+
+def test_policy_endpoint_and_q4_supervisor_flow_are_actionable(seeded_service) -> None:
+    client = TestClient(create_app(seeded_service))
+    policy = client.post(
+        "/api/policy/evaluate",
+        json={"action": "discount", "discount_percent": 20},
+    )
+    assert policy.status_code == 200
+    assert policy.json()["outcome"] == "requires_approval"
+
+    answer = client.post("/api/agent/ask", json={"request": "Why will we miss Q4?"})
+    assert answer.status_code == 200
+    assert answer.json()["intent"] == "q4_risk"
+    assert "economic buyer" in answer.json()["response"].lower()

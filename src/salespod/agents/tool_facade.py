@@ -27,4 +27,6 @@ class CrmToolFacade:
             return self.service.log_activity(LogActivityRequest.model_validate(arguments))
         if tool_name == "get_pipeline_snapshot":
             return self.service.get_pipeline_snapshot(**arguments)
+        if tool_name == "analyze_q4_risk":
+            return self.service.analyze_q4_risk()
         raise ValueError(f"unsupported CRM tool: {tool_name}")

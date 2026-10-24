@@ -27,6 +27,16 @@ export interface ActivitySummary {
   metadata: Record<string, unknown>
 }
 
+export interface AuditEventSummary {
+  id: string
+  event_type: string
+  actor: string
+  entity_type: string
+  entity_id: string
+  occurred_at: string
+  payload: Record<string, unknown>
+}
+
 export interface DashboardOverview {
   generated_at: string
   pipeline_totals: {
@@ -44,6 +54,7 @@ export interface DashboardOverview {
     by_type: Record<string, number>
   }
   recent_activities: ActivitySummary[]
+  recent_audit_events: AuditEventSummary[]
 }
 
 export interface ApprovalEvidence {

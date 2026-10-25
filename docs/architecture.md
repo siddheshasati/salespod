@@ -61,6 +61,9 @@ tests/                              offline unit/integration/contract tests
 | `update_stage` | guarded stage transition | yes |
 | `log_activity` | append an auditable activity | yes |
 | `get_pipeline_snapshot` | stage totals and weighted forecast | no |
+| `list_signal_events` | list durable company signal events | no |
+| `get_signal_event` | retrieve one signal event | no |
+| `acknowledge_signal` | mark a signal as reviewed | yes |
 
 The HTTP control plane adds durable `approval_requests` and `audit_events`
 tables. Approval candidates are synchronized from transcript evidence, while
@@ -68,6 +71,12 @@ approval decisions, stage changes, and logged activities append audit events.
 The policy engine currently auto-approves low-risk CRM reads/notes/stage
 updates and escalates discounts above 15%, executive outreach, and contract
 changes.
+
+The `signal_events` table stores company-level market and account events with
+source metadata, relevance scores, suggested actions, and an acknowledgement
+status. Signals are exposed through both the HTTP API and the MCP adapter so
+the frontend, supervisor, and future research/writer agents can share one
+durable event stream.
 
 Mutation tools are only reachable from the graph when the manager request is
 explicitly an update/log request. A natural-language question cannot silently

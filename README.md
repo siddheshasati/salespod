@@ -1,4 +1,4 @@
-# Autonomous Sales Pod v2
+# Autonomous Sales Pod
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-Enabled-green.svg)](https://github.com/jlowin/fastmcp)
@@ -6,7 +6,7 @@
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%7C%20Vite%20%7C%20Tailwind-blueviolet.svg)](frontend/)
 [![Offline First](https://img.shields.io/badge/Architecture-Offline--First-success.svg)](#offline-first--local-llm-architecture)
 
-**Autonomous Sales Pod v2** is a production-oriented, offline-first AI revenue engine and manager command center. It unifies a deterministic synthetic CRM, transactional application services, a FastMCP tool boundary, a LangGraph-compatible supervisor flow, and an interactive executive dashboard.
+**Autonomous Sales Pod** is a production-oriented, offline-first AI revenue engine and manager command center. It unifies a deterministic synthetic CRM, transactional application services, a FastMCP tool boundary, a LangGraph-compatible supervisor flow, and an interactive executive dashboard.
 
 The system ensures that autonomous agents cannot mutate CRM state unchecked: every state mutation flows through a transactional service with optimistic concurrency control, idempotency guards, and human-in-the-loop approvals.
 
@@ -90,7 +90,7 @@ Manager / MCP Client / Frontend Dashboard
 
 ## FastMCP Tool Contracts
 
-The pod exposes five typed MCP tools via FastMCP:
+The pod exposes eight typed MCP tools via FastMCP:
 
 | Tool | Purpose | Mutation | Safety Mechanism |
 | :--- | :--- | :---: | :--- |
@@ -99,6 +99,9 @@ The pod exposes five typed MCP tools via FastMCP:
 | `update_stage` | Guarded deal stage transition | **Yes** | Requires `expected_version` and idempotency key |
 | `log_activity` | Append auditable note, call, meeting, or email activity | **Yes** | Validates actor, deal/lead IDs, and idempotency key |
 | `get_pipeline_snapshot` | Aggregated stage counts and weighted revenue totals | No | Read-only summary snapshot |
+| `list_signal_events` | List company signal events with filters | No | Read-only durable signal query |
+| `get_signal_event` | Retrieve one signal event and source metadata | No | Read-only durable signal query |
+| `acknowledge_signal` | Mark a signal as reviewed by a manager | **Yes** | Transactional status update and audit event |
 
 ---
 
@@ -145,7 +148,7 @@ without dropping CRM data. New databases are created at the latest revision.
 
 ### 2. Seed the Synthetic CRM
 
-Generate 80 companies, 500 leads, 120 deals, 1,500 email threads, and 60 call transcripts with a deterministic seed:
+Generate 80 companies, 500 leads, 120 deals, 1,500 email threads, 60 call transcripts, and 12 company signal events with a deterministic seed:
 
 ```powershell
 python -m scripts.seed_database --reset
@@ -206,6 +209,19 @@ GET  /api/audit/events
 POST /api/policy/evaluate
 ```
 
+The Signal Radar is backed by the durable `signal_events` table and exposes:
+
+```text
+GET  /api/signals
+GET  /api/signals/{signal_id}
+GET  /api/companies/{company_id}/signals
+POST /api/signals/{signal_id}/acknowledge
+```
+
+Signal events include deterministic funding, executive, workforce, technology,
+competitive, and expansion scenarios. The same records are available through
+the MCP tools `list_signal_events`, `get_signal_event`, and `acknowledge_signal`.
+
 The supervisor also supports `Why will we miss Q4?` with structured evidence
 for stalled negotiation deals, missing economic buyers, and competitor mentions.
 
@@ -250,4 +266,3 @@ python -m pytest
 # Run Ruff linter and formatter checks
 ruff check .
 ```
-

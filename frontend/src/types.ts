@@ -153,3 +153,30 @@ export interface UpdateStageResponse {
   deal: DealDetail
   stage_change: StageChange
 }
+
+export type SignalEventType =
+  | 'funding_round'
+  | 'executive_change'
+  | 'layoffs'
+  | 'tech_stack_change'
+  | 'competitor_mention'
+  | 'expansion'
+
+export type SignalStatus = 'new' | 'acknowledged' | 'dismissed'
+
+export interface SignalEventRecord {
+  id: string
+  company_id: string
+  company_name: string
+  company_domain: string
+  event_type: SignalEventType
+  headline: string
+  summary: string
+  source: string
+  source_url?: string | null
+  occurred_at: string
+  status: SignalStatus
+  relevance_score: number
+  suggested_action: string
+  payload: Record<string, unknown>
+}

@@ -187,3 +187,27 @@ class AuditEvent(Base):
     entity_id: Mapped[str] = mapped_column(String(120), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class SignalEvent(Base):
+    __tablename__ = "signal_events"
+    __table_args__ = (
+        Index("ix_signal_events_company_id", "company_id"),
+        Index("ix_signal_events_event_type", "event_type"),
+        Index("ix_signal_events_status", "status"),
+        Index("ix_signal_events_occurred_at", "occurred_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    company_id: Mapped[str] = mapped_column(String(36), ForeignKey("companies.id"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    headline: Mapped[str] = mapped_column(String(240), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="new")
+    relevance_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    suggested_action: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

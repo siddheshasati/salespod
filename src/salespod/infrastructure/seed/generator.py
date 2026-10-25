@@ -13,7 +13,13 @@ from uuid import UUID, uuid5
 from faker import Faker
 from sqlalchemy.orm import Session
 
-from salespod.domain.enums import ActivityType, DealStage, LeadStatus
+from salespod.domain.enums import (
+    ActivityType,
+    DealStage,
+    LeadStatus,
+    SignalEventType,
+    SignalStatus,
+)
 from salespod.infrastructure.db.models import (
     Activity,
     CallTranscript,
@@ -22,6 +28,7 @@ from salespod.infrastructure.db.models import (
     DealStageHistory,
     EmailThread,
     Lead,
+    SignalEvent,
 )
 from salespod.infrastructure.db.session import build_engine, migrate_database, reset_database
 
@@ -31,6 +38,7 @@ LEAD_COUNT = 500
 DEAL_COUNT = 120
 EMAIL_COUNT = 1_500
 CALL_COUNT = 60
+SIGNAL_COUNT = 12
 
 
 @dataclass(frozen=True)
@@ -71,6 +79,7 @@ class SyntheticCrmGenerator:
         self.calls: list[CallTranscript] = []
         self.activities: list[Activity] = []
         self.history: list[DealStageHistory] = []
+        self.signals: list[SignalEvent] = []
         self.truth_cases: list[dict[str, Any]] = []
 
     def generate(self) -> tuple[list[Any], dict[str, Any]]:
@@ -80,6 +89,7 @@ class SyntheticCrmGenerator:
         self._emails()
         self._calls()
         self._initial_stage_history()
+        self._signals()
         self._validate()
         return (
             [
@@ -90,6 +100,7 @@ class SyntheticCrmGenerator:
                 *self.calls,
                 *self.activities,
                 *self.history,
+                *self.signals,
             ],
             self._manifest(),
         )
@@ -337,12 +348,96 @@ class SyntheticCrmGenerator:
                 )
             )
 
+    def _signals(self) -> None:
+        event_specs = [
+            (
+                SignalEventType.FUNDING_ROUND,
+                "Funding round announced",
+                "funding_wire",
+                "A new funding round suggests budget and growth capacity for a revenue "
+                "platform initiative.",
+                "Review the account plan and prepare an expansion-focused outreach brief.",
+                {"round": "Series B", "amount_minor": 42_000_000, "investor_count": 3},
+            ),
+            (
+                SignalEventType.EXECUTIVE_CHANGE,
+                "New revenue leader joined the company",
+                "company_blog",
+                "A new revenue executive is likely to review pipeline visibility, forecast "
+                "quality, and team productivity.",
+                "Map the new executive and prepare a concise revenue-operations point of view.",
+                {"role": "Chief Revenue Officer", "change": "joined"},
+            ),
+            (
+                SignalEventType.LAYOFFS,
+                "Workforce reduction reported",
+                "market_brief",
+                "A workforce reduction may change buying priorities and increases the need "
+                "for efficient revenue workflows.",
+                "Validate timing and budget before proposing an efficiency-oriented conversation.",
+                {"estimated_impact": "10-15% of workforce", "confidence": "medium"},
+            ),
+            (
+                SignalEventType.TECH_STACK_CHANGE,
+                "Revenue technology stack changed",
+                "tech_radar",
+                "A new revenue technology footprint suggests an active evaluation cycle and "
+                "a potential integration conversation.",
+                "Research the current stack and identify a relevant integration or "
+                "replacement angle.",
+                {"added": "Revenue intelligence platform", "category": "sales_operations"},
+            ),
+            (
+                SignalEventType.EXPANSION,
+                "Company announced regional expansion",
+                "company_news",
+                "Regional expansion creates new sales-process complexity and may increase "
+                "demand for consistent forecasting.",
+                "Prioritize the account for a multi-region pipeline visibility message.",
+                {"region": "North America", "motion": "go_to_market_expansion"},
+            ),
+            (
+                SignalEventType.COMPETITOR_MENTION,
+                "Competitor appeared in account research",
+                "market_intel",
+                "A competitor mention indicates active evaluation and an opportunity to "
+                "clarify differentiation.",
+                "Review competitive positioning and prepare a proof point before outreach.",
+                {"competitor": "Northstar", "confidence": "high"},
+            ),
+        ]
+        for index in range(SIGNAL_COUNT):
+            event_type, label, source, summary, suggested_action, payload = event_specs[
+                index % len(event_specs)
+            ]
+            company = self.companies[(index * 9 + 3) % COMPANY_COUNT]
+            occurred_at = self._timestamp(days_ago=2 + ((index * 7) % 45), hour=9 + index % 7)
+            signal_id = stable_id("signal", index)
+            self.signals.append(
+                SignalEvent(
+                    id=signal_id,
+                    company_id=company.id,
+                    event_type=event_type.value,
+                    headline=f"{company.name}: {label}",
+                    summary=summary,
+                    source=source,
+                    source_url=f"https://signals.example.com/events/{signal_id}",
+                    occurred_at=occurred_at,
+                    status=SignalStatus.NEW.value,
+                    relevance_score=72 + ((index * 7) % 25),
+                    suggested_action=suggested_action,
+                    payload_json={**payload, "seed_index": index},
+                    created_at=occurred_at,
+                )
+            )
+
     def _validate(self) -> None:
         assert len(self.companies) == COMPANY_COUNT
         assert len(self.leads) == LEAD_COUNT
         assert len(self.deals) == DEAL_COUNT
         assert len(self.emails) == EMAIL_COUNT
         assert len(self.calls) == CALL_COUNT
+        assert len(self.signals) == SIGNAL_COUNT
         assert len(self.truth_cases) == 5
         assert len({company.domain for company in self.companies}) == COMPANY_COUNT
         assert len({lead.email for lead in self.leads}) == LEAD_COUNT
@@ -379,6 +474,7 @@ class SyntheticCrmGenerator:
                 "call_transcripts": len(self.calls),
                 "activities": len(self.activities),
                 "stage_history": len(self.history),
+                "signal_events": len(self.signals),
             },
             "ground_truth_cases": self.truth_cases,
             "expected_pipeline": expected_pipeline,
@@ -409,6 +505,7 @@ def seed_database(
         # keeps entities detached and transport-independent.
         for model in (
             Company,
+            SignalEvent,
             Lead,
             Deal,
             EmailThread,

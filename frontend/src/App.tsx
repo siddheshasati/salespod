@@ -58,6 +58,7 @@ import type {
   DealResponse,
   DealStage,
   LeadSummary,
+  SignalEventRecord,
 } from './types'
 
 type View = 'overview' | 'pipeline' | 'approvals' | 'signals' | 'audit'
@@ -803,7 +804,19 @@ function DealDrawer({
   )
 }
 
-function SignalRadar({ overview, approvals }: { overview: DashboardOverview; approvals: ApprovalRecord[] }) {
+function SignalRadar({
+  overview,
+  signals,
+  onAcknowledge,
+  busyId,
+}: {
+  overview: DashboardOverview
+  signals: SignalEventRecord[]
+  onAcknowledge: (signal: SignalEventRecord) => void
+  busyId: string | null
+}) {
+  const eventLabel = (eventType: SignalEventRecord['event_type']) =>
+    eventType.replaceAll('_', ' ')
   return (
     <div className="card grid-pattern overflow-hidden p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -811,19 +824,19 @@ function SignalRadar({ overview, approvals }: { overview: DashboardOverview; app
         <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 pulse-soft" /> Stream active</span>
       </div>
       <div className="mt-7 grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Risk signals</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{approvals.length}</p><p className="mt-1 text-[11px] text-slate-400">Economic buyer evidence detected</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Call intelligence</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">60</p><p className="mt-1 text-[11px] text-slate-400">Transcripts ready for coaching</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Activities observed</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{overview.recent_activities.length}</p><p className="mt-1 text-[11px] text-slate-400">Latest actions in the CRM feed</p></div>
-      </div>
-      <div className="mt-5 space-y-2">
-        {approvals.slice(0, 5).map((approval) => (
-          <div key={approval.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600"><AlertTriangle size={14} /></div>
-            <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-bold text-ink">Economic buyer risk · {approval.company_name}</p><span className="text-[10px] font-medium text-slate-400">{relativeDate(approval.created_at)}</span></div><p className="mt-1 text-[11px] leading-relaxed text-slate-500">{approval.evidence[0]?.summary ?? 'Evidence available in the deal record.'}</p></div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4"><Sparkles size={17} className="shrink-0 text-coral" /><p className="text-xs leading-relaxed text-slate-500"><span className="font-bold text-ink">Connected signal source:</span> seeded call intelligence is producing real risk events. Funding, leadership, layoffs, and tech-stack events can plug into the same feed.</p></div>
+         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Signal events</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{signals.length}</p><p className="mt-1 text-[11px] text-slate-400">Company events in the radar</p></div>
+         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">New signals</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{signals.filter((signal) => signal.status === 'new').length}</p><p className="mt-1 text-[11px] text-slate-400">Ready for manager triage</p></div>
+         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Avg relevance</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{signals.length ? Math.round(signals.reduce((sum, signal) => sum + signal.relevance_score, 0) / signals.length) : 0}</p><p className="mt-1 text-[11px] text-slate-400">Weighted account relevance</p></div>
+       </div>
+       <div className="mt-5 space-y-2">
+         {signals.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-xs text-slate-400">No signal events match the current view.</div> : signals.map((signal) => (
+           <div key={signal.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3.5">
+             <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><Radio size={14} /></div>
+             <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-bold text-ink">{signal.headline}</p><p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-600">{eventLabel(signal.event_type)} · {signal.company_domain}</p></div><span className="text-[10px] font-medium text-slate-400">{relativeDate(signal.occurred_at)}</span></div><p className="mt-2 text-[11px] leading-relaxed text-slate-500">{signal.summary}</p><div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-[10px] font-semibold text-slate-400">Relevance {signal.relevance_score} · {signal.source}</span>{signal.status === 'new' ? <button onClick={() => onAcknowledge(signal)} disabled={busyId === signal.id} className="rounded-lg bg-ink px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">{busyId === signal.id ? <Loader2 size={12} className="animate-spin" /> : 'Acknowledge'}</button> : <span className="text-[10px] font-bold capitalize text-emerald-600">{signal.status}</span>}</div></div>
+           </div>
+         ))}
+       </div>
+       <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4"><Sparkles size={17} className="shrink-0 text-coral" /><p className="text-xs leading-relaxed text-slate-500"><span className="font-bold text-ink">Connected signal source:</span> deterministic funding, leadership, workforce, technology, competitive, and expansion events are persisted in the CRM signal stream.</p></div>
     </div>
   )
 }
@@ -863,6 +876,7 @@ export default function App() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
   const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
+  const [signals, setSignals] = useState<SignalEventRecord[]>([])
   const [auditEvents, setAuditEvents] = useState<AuditEventSummary[]>([])
   const [leads, setLeads] = useState<LeadSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -872,6 +886,7 @@ export default function App() {
   const [selectedDeal, setSelectedDeal] = useState<DealResponse | null>(null)
   const [dealLoading, setDealLoading] = useState(false)
   const [approvalBusy, setApprovalBusy] = useState<string | null>(null)
+  const [signalBusy, setSignalBusy] = useState<string | null>(null)
   const [leadQuery, setLeadQuery] = useState('')
   const [leadSearchLoading, setLeadSearchLoading] = useState(false)
   const [headerSearch, setHeaderSearch] = useState('')
@@ -884,13 +899,15 @@ export default function App() {
     else setRefreshing(true)
     setError(null)
     try {
-      const [overviewResult, approvalsResult, leadsResult] = await Promise.all([
+      const [overviewResult, approvalsResult, leadsResult, signalsResult] = await Promise.all([
         api.getOverview(),
         api.getApprovals(),
         api.searchLeads(''),
+        api.getSignals(),
       ])
       setOverview(overviewResult)
       setApprovals(approvalsResult)
+      setSignals(signalsResult)
       setLeads(leadsResult.items)
       setAuditEvents(overviewResult.recent_audit_events)
     } catch (cause) {
@@ -982,6 +999,19 @@ export default function App() {
     }
   }
 
+  const handleAcknowledgeSignal = async (signal: SignalEventRecord) => {
+    setSignalBusy(signal.id)
+    setError(null)
+    try {
+      const updated = await api.acknowledgeSignal(signal.id)
+      setSignals((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to acknowledge the signal.')
+    } finally {
+      setSignalBusy(null)
+    }
+  }
+
   const handleAskAgent = async (event: FormEvent) => {
     event.preventDefault()
     await askAgent(agentInput.trim())
@@ -1038,7 +1068,7 @@ export default function App() {
       {activeView === 'overview' && <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><LeadSearch leads={leads} query={leadQuery} onQueryChange={setLeadQuery} onSubmit={handleLeadSearch} loading={leadSearchLoading} /><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSuggestion={handleSuggestion} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
       {activeView === 'pipeline' && <div className="mt-5"><LeadSearch leads={leads} query={leadQuery} onQueryChange={setLeadQuery} onSubmit={handleLeadSearch} loading={leadSearchLoading} /></div>}
       {activeView === 'approvals' && <div className="mt-5"><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSuggestion={handleSuggestion} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
-      {activeView === 'signals' && <><SignalRadar overview={overview} approvals={approvals} /><div className="mt-5"><ActivityFeed activities={overview.recent_activities} onOpenAudit={() => handleNavigate('audit')} /></div></>}
+       {activeView === 'signals' && <><SignalRadar overview={overview} signals={signals} onAcknowledge={handleAcknowledgeSignal} busyId={signalBusy} /><div className="mt-5"><ActivityFeed activities={overview.recent_activities} onOpenAudit={() => handleNavigate('audit')} /></div></>}
       {activeView === 'audit' && <AuditLog events={auditEvents} />}
     </>
   ) : (

@@ -123,3 +123,45 @@ def test_policy_endpoint_and_q4_supervisor_flow_are_actionable(seeded_service) -
     assert answer.status_code == 200
     assert answer.json()["intent"] == "q4_risk"
     assert "economic buyer" in answer.json()["response"].lower()
+
+
+def test_signal_endpoints_list_filter_and_acknowledge_seeded_events(seeded_service) -> None:
+    client = TestClient(create_app(seeded_service))
+
+    signals = client.get("/api/signals", params={"limit": 20})
+    assert signals.status_code == 200
+    records = signals.json()
+    assert len(records) == 12
+    assert {item["status"] for item in records} == {"new"}
+    assert {item["event_type"] for item in records} >= {
+        "funding_round",
+        "executive_change",
+        "layoffs",
+        "tech_stack_change",
+        "expansion",
+        "competitor_mention",
+    }
+
+    event = records[0]
+    detail = client.get(f"/api/signals/{event['id']}")
+    assert detail.status_code == 200
+    assert detail.json()["id"] == event["id"]
+
+    filtered = client.get(
+        "/api/signals",
+        params={"event_type": "funding_round", "status": "new", "limit": 20},
+    )
+    assert filtered.status_code == 200
+    assert filtered.json()
+    assert all(item["event_type"] == "funding_round" for item in filtered.json())
+
+    acknowledged = client.post(
+        f"/api/signals/{event['id']}/acknowledge",
+        json={"actor": "manager", "note": "Added to account planning."},
+    )
+    assert acknowledged.status_code == 200
+    assert acknowledged.json()["status"] == "acknowledged"
+
+    company_signals = client.get(f"/api/companies/{event['company_id']}/signals")
+    assert company_signals.status_code == 200
+    assert all(item["company_id"] == event["company_id"] for item in company_signals.json())

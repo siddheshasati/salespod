@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from salespod.application.policy import ActionKind, PolicyOutcome
 from salespod.domain.contracts import ActivitySummary, PipelineStageSummary
-from salespod.domain.enums import DealStage
+from salespod.domain.enums import DealStage, SignalEventType, SignalStatus
 
 
 class ApiModel(BaseModel):
@@ -136,3 +136,25 @@ class StageChangeRequest(ApiModel):
     actor: str = Field(min_length=1, max_length=120)
     expected_version: int = Field(ge=1)
     idempotency_key: str | None = Field(default=None, max_length=200)
+
+
+class SignalEventRecord(ApiModel):
+    id: UUID
+    company_id: UUID
+    company_name: str
+    company_domain: str
+    event_type: SignalEventType
+    headline: str
+    summary: str
+    source: str
+    source_url: str | None = None
+    occurred_at: datetime
+    status: SignalStatus
+    relevance_score: int = Field(ge=0, le=100)
+    suggested_action: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class SignalAcknowledgeRequest(ApiModel):
+    actor: str = Field(min_length=1, max_length=120)
+    note: str | None = Field(default=None, min_length=1, max_length=500)

@@ -10,3 +10,6 @@ def test_fastmcp_exposes_exact_crm_tools(seeded_service) -> None:
     tools = asyncio.run(server.get_tools())
     assert tuple(tools) == TOOL_NAMES
     assert set(tools) == set(TOOL_NAMES)
+    assert {"list_signal_events", "get_signal_event", "acknowledge_signal"}.issubset(
+        set(TOOL_NAMES)
+    )

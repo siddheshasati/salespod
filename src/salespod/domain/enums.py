@@ -27,3 +27,18 @@ class ActivityType(StrEnum):
     MEETING = "meeting"
     STAGE_CHANGE = "stage_change"
     SYSTEM = "system"
+
+
+class SignalEventType(StrEnum):
+    FUNDING_ROUND = "funding_round"
+    EXECUTIVE_CHANGE = "executive_change"
+    LAYOFFS = "layoffs"
+    TECH_STACK_CHANGE = "tech_stack_change"
+    COMPETITOR_MENTION = "competitor_mention"
+    EXPANSION = "expansion"
+
+
+class SignalStatus(StrEnum):
+    NEW = "new"
+    ACKNOWLEDGED = "acknowledged"
+    DISMISSED = "dismissed"

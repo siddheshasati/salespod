@@ -12,14 +12,17 @@ from sqlalchemy.orm import Session, sessionmaker
 from salespod.agents.graph import build_graph
 from salespod.application.crm_service import CrmService
 from salespod.application.policy import PolicyEngine
+from salespod.application.signal_service import SignalService
 from salespod.config import Settings
 from salespod.domain.contracts import (
     GetDealResponse,
+    ListSignalsRequest,
     SearchLeadsRequest,
     SearchLeadsResponse,
     UpdateStageRequest,
     UpdateStageResponse,
 )
+from salespod.domain.enums import SignalEventType, SignalStatus
 from salespod.domain.errors import ConflictError, NotFoundError, SalesPodError, ValidationError
 from salespod.infrastructure.db.session import create_schema, create_session_factory
 
@@ -38,6 +41,8 @@ from .schemas import (
     HealthResponse,
     PolicyEvaluationRequest,
     PolicyEvaluationResponse,
+    SignalAcknowledgeRequest,
+    SignalEventRecord,
     StageChangeRequest,
 )
 
@@ -80,6 +85,10 @@ def _graph(request: Request) -> SalesPodGraph:
     return request.app.state.graph
 
 
+def _signals(request: Request) -> SignalService:
+    return request.app.state.signals
+
+
 def create_app(
     service: CrmService | None = None,
     *,
@@ -120,6 +129,7 @@ def create_app(
     app.state.approvals = ApprovalRepository(session_factory)
     app.state.dashboard = DashboardRepository(session_factory)
     app.state.audit = AuditRepository(session_factory)
+    app.state.signals = SignalService(session_factory)
     app.state.graph = graph
     app.state.policy = PolicyEngine()
 
@@ -234,6 +244,67 @@ def create_app(
             observations=result.get("observations", []),
             errors=result.get("errors", []),
         )
+
+    @app.get("/api/signals", response_model=list[SignalEventRecord], tags=["signals"])
+    def signals(
+        signal_service: Annotated[SignalService, Depends(_signals)],
+        company_id: Annotated[UUID | None, Query()] = None,
+        event_type: Annotated[SignalEventType | None, Query()] = None,
+        status: Annotated[SignalStatus | None, Query()] = None,
+        query: Annotated[str | None, Query(max_length=200)] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> list[SignalEventRecord]:
+        records = signal_service.list_events(
+            ListSignalsRequest(
+                company_id=company_id,
+                event_type=event_type,
+                status=status,
+                query=query,
+                limit=limit,
+            )
+        )
+        return [SignalEventRecord.model_validate(record.model_dump()) for record in records]
+
+    @app.get("/api/signals/{signal_id}", response_model=SignalEventRecord, tags=["signals"])
+    def signal(
+        signal_id: UUID,
+        signal_service: Annotated[SignalService, Depends(_signals)],
+    ) -> SignalEventRecord:
+        record = signal_service.get_event(signal_id)
+        return SignalEventRecord.model_validate(record.model_dump())
+
+    @app.get(
+        "/api/companies/{company_id}/signals",
+        response_model=list[SignalEventRecord],
+        tags=["signals"],
+    )
+    def company_signals(
+        company_id: UUID,
+        signal_service: Annotated[SignalService, Depends(_signals)],
+        status: Annotated[SignalStatus | None, Query()] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> list[SignalEventRecord]:
+        records = signal_service.list_events(
+            ListSignalsRequest(company_id=company_id, status=status, limit=limit)
+        )
+        return [SignalEventRecord.model_validate(record.model_dump()) for record in records]
+
+    @app.post(
+        "/api/signals/{signal_id}/acknowledge",
+        response_model=SignalEventRecord,
+        tags=["signals"],
+    )
+    def acknowledge_signal(
+        signal_id: UUID,
+        request: SignalAcknowledgeRequest,
+        signal_service: Annotated[SignalService, Depends(_signals)],
+    ) -> SignalEventRecord:
+        record = signal_service.acknowledge(
+            signal_id,
+            actor=request.actor,
+            note=request.note,
+        )
+        return SignalEventRecord.model_validate(record.model_dump())
 
     @app.post("/api/deals/{deal_id}/stage", tags=["crm"])
     def update_deal_stage(

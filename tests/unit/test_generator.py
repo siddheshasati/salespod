@@ -13,7 +13,7 @@ def test_generator_has_exact_counts_and_stable_manifest() -> None:
         seed=settings.seed, as_of=settings.dataset_as_of
     ).generate()
 
-    assert len(first_records) == len(second_records) == 2_440
+    assert len(first_records) == len(second_records) == 2_452
     assert first["content_hash"] == second["content_hash"]
     assert first["counts"] == {
         "companies": 80,
@@ -23,6 +23,7 @@ def test_generator_has_exact_counts_and_stable_manifest() -> None:
         "call_transcripts": 60,
         "activities": 60,
         "stage_history": 120,
+        "signal_events": 12,
     }
 
 

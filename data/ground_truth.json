@@ -1,6 +1,6 @@
 {
   "as_of": "2026-10-21T12:00:00+00:00",
-  "content_hash": "9ed753d4856cc73c59a76f403c8954a43f46f63b7fd9b458ced32b2e541de310",
+  "content_hash": "855ec4b195f988431835d812cc5665ad98127a4cf402158587dc52484a78c4bb",
   "counts": {
     "activities": 60,
     "call_transcripts": 60,
@@ -8,6 +8,7 @@
     "deals": 120,
     "email_threads": 1500,
     "leads": 500,
+    "signal_events": 12,
     "stage_history": 120
   },
   "expected_pipeline": {

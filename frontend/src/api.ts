@@ -6,6 +6,7 @@ import type {
   DealResponse,
   DealStage,
   SearchLeadsResponse,
+  SignalEventRecord,
   UpdateStageResponse,
 } from './types'
 
@@ -32,6 +33,13 @@ export const api = {
   getOverview: () => request<DashboardOverview>('/api/dashboard/overview'),
   getApprovals: () => request<ApprovalRecord[]>('/api/approvals'),
   getAuditEvents: () => request<AuditEventSummary[]>('/api/audit/events?limit=100'),
+  getSignals: (status?: string) =>
+    request<SignalEventRecord[]>(`/api/signals?limit=50${status ? `&status=${encodeURIComponent(status)}` : ''}`),
+  acknowledgeSignal: (signalId: string, note?: string) =>
+    request<SignalEventRecord>(`/api/signals/${signalId}/acknowledge`, {
+      method: 'POST',
+      body: JSON.stringify({ actor: 'manager', note: note || undefined }),
+    }),
   getDeal: (dealId: string) => request<DealResponse>(`/api/deals/${dealId}`),
   searchLeads: (query: string) =>
     request<SearchLeadsResponse>(`/api/leads?query=${encodeURIComponent(query)}&limit=8`),

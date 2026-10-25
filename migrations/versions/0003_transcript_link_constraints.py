@@ -55,14 +55,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    bind = op.get_bind()
-    if bind.dialect.name == "sqlite":
-        with op.batch_alter_table("call_transcripts") as batch_op:
-            batch_op.drop_constraint("fk_call_transcripts_deal_id_deals", type_="foreignkey")
-    else:
-        op.drop_constraint(
-            "fk_call_transcripts_deal_id_deals",
-            "call_transcripts",
-            type_="foreignkey",
-        )
     op.drop_index("ix_call_transcripts_deal_id", table_name="call_transcripts")

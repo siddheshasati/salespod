@@ -6,13 +6,15 @@ from typing import Any
 from uuid import UUID
 
 from salespod.application.crm_service import CrmService
+from salespod.application.signal_service import SignalService
 from salespod.config import Settings
 from salespod.domain.contracts import (
+    ListSignalsRequest,
     LogActivityRequest,
     SearchLeadsRequest,
     UpdateStageRequest,
 )
-from salespod.domain.enums import ActivityType, DealStage, LeadStatus
+from salespod.domain.enums import ActivityType, DealStage, LeadStatus, SignalEventType, SignalStatus
 from salespod.domain.errors import SalesPodError
 from salespod.infrastructure.db.session import create_session_factory
 
@@ -28,6 +30,9 @@ TOOL_NAMES = (
     "update_stage",
     "log_activity",
     "get_pipeline_snapshot",
+    "list_signal_events",
+    "get_signal_event",
+    "acknowledge_signal",
 )
 
 
@@ -43,6 +48,7 @@ def create_server(service: CrmService | None = None):
         settings = Settings.from_env()
         settings.ensure_database_parent()
         service = CrmService(create_session_factory(settings.database_url))
+    signal_service = SignalService(service.session_factory)
     mcp = FastMCP("salespod-crm")
 
     @mcp.tool(name="search_leads")
@@ -133,6 +139,50 @@ def create_server(service: CrmService | None = None):
         try:
             return service.get_pipeline_snapshot(
                 as_of=as_of, company_id=company_id, owner=owner
+            ).model_dump(mode="json")
+        except SalesPodError as exc:
+            raise _error(exc) from exc
+
+    @mcp.tool(name="list_signal_events")
+    def list_signal_events(
+        company_id: UUID | None = None,
+        event_type: SignalEventType | None = None,
+        status: SignalStatus | None = None,
+        query: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        try:
+            result = signal_service.list_events(
+                ListSignalsRequest(
+                    company_id=company_id,
+                    event_type=event_type,
+                    status=status,
+                    query=query,
+                    limit=limit,
+                )
+            )
+            return [item.model_dump(mode="json") for item in result]
+        except SalesPodError as exc:
+            raise _error(exc) from exc
+
+    @mcp.tool(name="get_signal_event")
+    def get_signal_event(signal_id: UUID) -> dict[str, Any]:
+        try:
+            return signal_service.get_event(signal_id).model_dump(mode="json")
+        except SalesPodError as exc:
+            raise _error(exc) from exc
+
+    @mcp.tool(name="acknowledge_signal")
+    def acknowledge_signal(
+        signal_id: UUID,
+        actor: str,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            return signal_service.acknowledge(
+                signal_id,
+                actor=actor,
+                note=note,
             ).model_dump(mode="json")
         except SalesPodError as exc:
             raise _error(exc) from exc

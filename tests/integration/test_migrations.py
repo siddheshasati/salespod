@@ -6,11 +6,10 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 
-from salespod.infrastructure.db.models import Base
 from salespod.infrastructure.db.session import migrate_database
 
 ROOT = Path(__file__).resolve().parents[2]
-HEAD = "0003_transcript_link_constraints"
+HEAD = "0004_signal_events"
 
 
 def _alembic_config(database_url: str) -> Config:
@@ -80,7 +79,7 @@ def test_migrate_database_upgrades_an_unversioned_legacy_database(tmp_path: Path
 def test_migrate_database_stamps_an_existing_current_schema(tmp_path: Path) -> None:
     database_url = f"sqlite:///{tmp_path / 'current-unversioned.db'}"
     engine = create_engine(database_url)
-    Base.metadata.create_all(engine)
+    command.upgrade(_alembic_config(database_url), "0002_control_plane")
     with engine.begin() as connection:
         connection.execute(
             text(

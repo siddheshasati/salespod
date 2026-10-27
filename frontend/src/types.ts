@@ -59,14 +59,14 @@ export interface DashboardOverview {
 
 export interface ApprovalEvidence {
   source_id: string
-  source_type: 'call_transcript'
+  source_type: string
   summary: string
   occurred_at: string
 }
 
 export interface ApprovalRecord {
   id: string
-  risk_type: 'missing_economic_buyer'
+  risk_type: string
   status: 'pending' | 'approved' | 'rejected'
   deal_id: string
   company_id: string
@@ -157,12 +157,14 @@ export interface UpdateStageResponse {
 export type SignalEventType =
   | 'funding_round'
   | 'executive_change'
+  | 'new_cto'
+  | 'leadership_change'
   | 'layoffs'
   | 'tech_stack_change'
   | 'competitor_mention'
   | 'expansion'
 
-export type SignalStatus = 'new' | 'acknowledged' | 'dismissed'
+export type SignalStatus = 'new' | 'acknowledged' | 'processed' | 'dismissed'
 
 export interface SignalEventRecord {
   id: string
@@ -180,3 +182,61 @@ export interface SignalEventRecord {
   suggested_action: string
   payload: Record<string, unknown>
 }
+
+export interface BuyingCommitteeMember {
+  role_type: string
+  name: string
+  title: string
+  email: string
+  fit_score: number
+  rationale: string
+}
+
+export interface EmailVariant {
+  variant_id: string
+  name: string
+  angle: string
+  target_persona: string
+  subject: string
+  body: string
+  call_to_action: string
+}
+
+export interface SignalPipelineResult {
+  signal_id: string
+  status: string
+  account_research: {
+    company_name: string
+    domain: string
+    industry: string
+    signal_summary: string
+    recent_news: Array<{ title: string; source: string; summary: string }>
+    funding_context: Array<{ round: string; amount_formatted: string; summary: string }>
+    tech_stack: { technologies: Record<string, { name: string; status: string }> }
+    strategic_priorities: string[]
+  }
+  buying_committee: {
+    economic_buyer?: BuyingCommitteeMember | null
+    technical_buyer?: BuyingCommitteeMember | null
+    champion?: BuyingCommitteeMember | null
+    influencers: BuyingCommitteeMember[]
+  }
+  email_variants: EmailVariant[]
+  recommended_variant: EmailVariant
+  compliance_check: {
+    compliant: boolean
+    risk_score: number
+    recommendation: string
+    checks: Array<{ rule: string; status: string; detail: string }>
+  }
+  approval_id?: string | null
+  sandbox_send?: {
+    message_id: string
+    recipient: string
+    subject: string
+    status: string
+    sent_at: string
+    sandbox_transport: string
+  } | null
+}
+

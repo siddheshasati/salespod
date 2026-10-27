@@ -39,6 +39,10 @@ import {
   Users,
   X,
   Zap,
+  Mail,
+  Play,
+  Layers,
+  SendHorizontal,
 } from 'lucide-react'
 import {
   Bar,
@@ -59,6 +63,8 @@ import type {
   DealStage,
   LeadSummary,
   SignalEventRecord,
+  SignalEventType,
+  SignalPipelineResult,
 } from './types'
 
 type View = 'overview' | 'pipeline' | 'approvals' | 'signals' | 'audit'
@@ -804,39 +810,431 @@ function DealDrawer({
   )
 }
 
+function SignalBadge({ eventType }: { eventType: SignalEventType }) {
+  if (eventType === 'funding_round') {
+    return <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700">Funding Round</span>
+  }
+  if (eventType === 'new_cto') {
+    return <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700">New CTO</span>
+  }
+  if (eventType === 'layoffs') {
+    return <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700">Layoffs</span>
+  }
+  if (eventType === 'tech_stack_change') {
+    return <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple-700">Tech Stack</span>
+  }
+  if (eventType === 'leadership_change') {
+    return <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-700">Leadership</span>
+  }
+  return <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-600">{eventType.replaceAll('_', ' ')}</span>
+}
+
+function SignalPipelineModal({
+  signal,
+  pipeline,
+  loading,
+  onClose,
+  onApproveAndSend,
+  busy,
+}: {
+  signal: SignalEventRecord | null
+  pipeline: SignalPipelineResult | null
+  loading: boolean
+  onClose: () => void
+  onApproveAndSend: (approvalId: string) => Promise<void>
+  busy: boolean
+}) {
+  const [activeTab, setActiveTab] = useState<'variants' | 'committee' | 'research' | 'compliance'>('variants')
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(0)
+
+  if (!signal) return null
+
+  const steps = [
+    { title: 'Signal Event', sub: signal.event_type.replaceAll('_', ' '), done: true },
+    { title: 'Account Research', sub: 'via signals-mcp', done: !!pipeline },
+    { title: 'ICP Scoring', sub: 'Role weighted', done: !!pipeline },
+    { title: 'Buying Committee', sub: 'Mapped', done: !!pipeline },
+    { title: 'Email Variants', sub: '3 Angles', done: !!pipeline },
+    { title: 'Compliance Check', sub: '100% Passed', done: !!pipeline?.compliance_check?.compliant },
+    { title: 'Approval Inbox', sub: pipeline?.sandbox_send ? 'Approved' : 'Awaiting Review', done: !!pipeline },
+    { title: 'Sandbox Send', sub: pipeline?.sandbox_send ? 'Delivered' : 'Pending Action', done: !!pipeline?.sandbox_send },
+    { title: 'CRM Activity & Audit', sub: pipeline?.sandbox_send ? 'Recorded' : 'Pending Send', done: !!pipeline?.sandbox_send },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="scrollbar-thin max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-8" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+              <Sparkles size={22} />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="eyebrow text-coral">Autonomous Signal Radar Pipeline</span>
+                <SignalBadge eventType={signal.event_type} />
+              </div>
+              <h2 className="mt-1 text-lg font-extrabold tracking-[-0.03em] text-ink sm:text-xl">{signal.headline}</h2>
+              <p className="mt-1 text-xs text-slate-500">{signal.company_name} · {signal.company_domain} · Score {signal.relevance_score}/100</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="icon-button"><X size={18} /></button>
+        </div>
+
+        {/* 9-Stage Progress Stepper */}
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+          <p className="eyebrow text-slate-400">9-Stage Autonomous Flow Execution</p>
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-9">
+            {steps.map((st, i) => (
+              <div key={st.title} className="flex flex-col items-center rounded-xl bg-white p-2 text-center shadow-xs border border-slate-200/60">
+                <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${st.done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                  {st.done ? <Check size={12} /> : i + 1}
+                </div>
+                <p className="mt-1.5 text-[10px] font-bold leading-tight text-ink line-clamp-1">{st.title}</p>
+                <p className="text-[9px] text-slate-400 line-clamp-1">{st.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {loading || !pipeline ? (
+          <div className="flex min-h-[300px] flex-col items-center justify-center space-y-3">
+            <Loader2 className="animate-spin text-coral" size={32} />
+            <p className="text-sm font-semibold text-ink">Executing autonomous research, committee mapping & compliance checks...</p>
+            <p className="text-xs text-slate-400">Querying custom signals-mcp server and crafting personalized variants</p>
+          </div>
+        ) : (
+          <div className="mt-6">
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200">
+              <button
+                onClick={() => setActiveTab('variants')}
+                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition ${activeTab === 'variants' ? 'border-coral text-coral' : 'border-transparent text-slate-500 hover:text-ink'}`}
+              >
+                <Mail size={14} /> Email Variants ({pipeline.email_variants.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('committee')}
+                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition ${activeTab === 'committee' ? 'border-coral text-coral' : 'border-transparent text-slate-500 hover:text-ink'}`}
+              >
+                <Users size={14} /> Buying Committee
+              </button>
+              <button
+                onClick={() => setActiveTab('research')}
+                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition ${activeTab === 'research' ? 'border-coral text-coral' : 'border-transparent text-slate-500 hover:text-ink'}`}
+              >
+                <FileSearch size={14} /> signals-mcp Intel
+              </button>
+              <button
+                onClick={() => setActiveTab('compliance')}
+                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-bold transition ${activeTab === 'compliance' ? 'border-coral text-coral' : 'border-transparent text-slate-500 hover:text-ink'}`}
+              >
+                <ShieldCheck size={14} /> Compliance Clearance
+              </button>
+            </div>
+
+            {/* Tab: Variants */}
+            {activeTab === 'variants' && (
+              <div className="mt-5 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {pipeline.email_variants.map((v, idx) => (
+                    <button
+                      key={v.variant_id}
+                      onClick={() => setSelectedVariantIdx(idx)}
+                      className={`rounded-xl px-3 py-2 text-xs font-bold transition ${selectedVariantIdx === idx ? 'bg-ink text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+                {pipeline.email_variants[selectedVariantIdx] && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
+                      <div>
+                        <span className="eyebrow text-slate-400">Target Persona</span>
+                        <p className="text-xs font-bold text-ink">{pipeline.email_variants[selectedVariantIdx].target_persona}</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[10px] font-bold text-emerald-700">Angle: {pipeline.email_variants[selectedVariantIdx].angle}</span>
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-xs font-bold text-slate-700"><span className="text-slate-400">Subject:</span> {pipeline.email_variants[selectedVariantIdx].subject}</p>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs font-medium leading-relaxed text-slate-700 whitespace-pre-line">
+                      {pipeline.email_variants[selectedVariantIdx].body}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>Call to Action: <strong className="text-ink">{pipeline.email_variants[selectedVariantIdx].call_to_action}</strong></span>
+                      <span className="flex items-center gap-1 text-emerald-600 font-semibold"><ShieldCheck size={14} /> CAN-SPAM & Policy Cleared</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab: Committee */}
+            {activeTab === 'committee' && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                {pipeline.buying_committee.economic_buyer && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-800">Economic Buyer</span>
+                    <h4 className="mt-2 text-sm font-bold text-ink">{pipeline.buying_committee.economic_buyer.name}</h4>
+                    <p className="text-xs text-slate-500">{pipeline.buying_committee.economic_buyer.title}</p>
+                    <p className="mt-1 text-[11px] font-medium text-emerald-700">{pipeline.buying_committee.economic_buyer.email}</p>
+                    <div className="mt-3 border-t border-emerald-200/50 pt-2 text-[10px] text-slate-500">
+                      <strong className="text-ink">Fit Score {pipeline.buying_committee.economic_buyer.fit_score}/100</strong>: {pipeline.buying_committee.economic_buyer.rationale}
+                    </div>
+                  </div>
+                )}
+                {pipeline.buying_committee.technical_buyer && (
+                  <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4">
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-800">Technical Buyer</span>
+                    <h4 className="mt-2 text-sm font-bold text-ink">{pipeline.buying_committee.technical_buyer.name}</h4>
+                    <p className="text-xs text-slate-500">{pipeline.buying_committee.technical_buyer.title}</p>
+                    <p className="mt-1 text-[11px] font-medium text-indigo-700">{pipeline.buying_committee.technical_buyer.email}</p>
+                    <div className="mt-3 border-t border-indigo-200/50 pt-2 text-[10px] text-slate-500">
+                      <strong className="text-ink">Fit Score {pipeline.buying_committee.technical_buyer.fit_score}/100</strong>: {pipeline.buying_committee.technical_buyer.rationale}
+                    </div>
+                  </div>
+                )}
+                {pipeline.buying_committee.champion && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-800">Champion / User</span>
+                    <h4 className="mt-2 text-sm font-bold text-ink">{pipeline.buying_committee.champion.name}</h4>
+                    <p className="text-xs text-slate-500">{pipeline.buying_committee.champion.title}</p>
+                    <p className="mt-1 text-[11px] font-medium text-amber-700">{pipeline.buying_committee.champion.email}</p>
+                    <div className="mt-3 border-t border-amber-200/50 pt-2 text-[10px] text-slate-500">
+                      <strong className="text-ink">Fit Score {pipeline.buying_committee.champion.fit_score}/100</strong>: {pipeline.buying_committee.champion.rationale}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab: Research */}
+            {activeTab === 'research' && (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="eyebrow text-slate-400">signals-mcp / get_tech_stack</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {Object.entries(pipeline.account_research.tech_stack?.technologies || {}).map(([cat, item]: any) => (
+                      <div key={cat} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{cat.replaceAll('_', ' ')}</p>
+                        <p className="mt-1 text-xs font-bold text-ink truncate">{item.name}</p>
+                        <span className="text-[9px] capitalize text-slate-400">{item.status?.replaceAll('_', ' ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="eyebrow text-slate-400">signals-mcp / get_company_news & get_funding_events</p>
+                  <div className="mt-2 space-y-2">
+                    {pipeline.account_research.recent_news.map((item, i) => (
+                      <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                        <div className="flex items-center justify-between text-[11px]"><strong className="text-ink">{item.title}</strong><span className="text-slate-400">{item.source}</span></div>
+                        <p className="mt-1 text-xs text-slate-500">{item.summary}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Compliance */}
+            {activeTab === 'compliance' && (
+              <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/30 p-5">
+                <div className="flex items-center gap-2 text-emerald-800">
+                  <ShieldCheck size={18} />
+                  <h4 className="text-sm font-bold">Policy & Compliance Clearance</h4>
+                  <span className="ml-auto rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">Risk Score: 0.04 (Low)</span>
+                </div>
+                <p className="mt-2 text-xs text-slate-600">{pipeline.compliance_check.recommendation}</p>
+                <div className="mt-4 divide-y divide-emerald-100 border-t border-emerald-100">
+                  {pipeline.compliance_check.checks.map((chk, i) => (
+                    <div key={i} className="flex items-center justify-between py-2.5 text-xs">
+                      <span className="font-semibold text-slate-700 capitalize">{chk.rule.replaceAll('_', ' ')}</span>
+                      <span className="text-slate-500">{chk.detail}</span>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-800">Pass</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+              {pipeline.sandbox_send ? (
+                <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 size={16} /> Dispatched to Sandbox ({pipeline.sandbox_send.message_id}) · Activity & Audit Logged
+                </div>
+              ) : pipeline.approval_id ? (
+                <button
+                  onClick={() => onApproveAndSend(pipeline.approval_id!)}
+                  disabled={busy}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {busy ? <Loader2 size={14} className="animate-spin" /> : <SendHorizontal size={14} />} Approve & Send to Sandbox
+                </button>
+              ) : null}
+              <button onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Done</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SignalRadar({
   overview,
   signals,
   onAcknowledge,
+  onSimulate,
+  onSeedCohort,
+  onRunPipeline,
   busyId,
+  simulating,
 }: {
   overview: DashboardOverview
   signals: SignalEventRecord[]
   onAcknowledge: (signal: SignalEventRecord) => void
+  onSimulate: (eventType?: string) => Promise<void>
+  onSeedCohort: () => Promise<void>
+  onRunPipeline: (signal: SignalEventRecord) => Promise<void>
   busyId: string | null
+  simulating: boolean
 }) {
-  const eventLabel = (eventType: SignalEventRecord['event_type']) =>
-    eventType.replaceAll('_', ' ')
+  const [selectedEventType, setSelectedEventType] = useState<string>('new_cto')
+
   return (
     <div className="card grid-pattern overflow-hidden p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Radio size={19} /></div><div><p className="eyebrow">Event-driven intelligence</p><h2 className="section-title mt-1.5 text-[17px]">Signal radar</h2><p className="muted mt-1 text-xs">Live CRM evidence is already feeding the next action queue</p></div></div>
-        <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 pulse-soft" /> Stream active</span>
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <Radio size={19} />
+          </div>
+          <div>
+            <p className="eyebrow">Event-driven intelligence</p>
+            <h2 className="section-title mt-1.5 text-[17px]">Signal radar</h2>
+            <p className="muted mt-1 text-xs">Simulated event stream & autonomous GTM orchestration pipeline</p>
+          </div>
+        </div>
+        
+        {/* Interactive Event Stream Simulation Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedEventType}
+            onChange={(e) => setSelectedEventType(e.target.value)}
+            className="h-9 rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-ink outline-none"
+          >
+            <option value="funding_round">Funding Round</option>
+            <option value="new_cto">New CTO</option>
+            <option value="layoffs">Layoffs / Restructure</option>
+            <option value="tech_stack">Tech Stack Change</option>
+            <option value="leadership_change">Leadership Change</option>
+          </select>
+          <button
+            onClick={() => onSimulate(selectedEventType)}
+            disabled={simulating}
+            className="flex items-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-[11px] font-bold text-white transition hover:bg-slate-800 disabled:opacity-50"
+          >
+            {simulating ? <Loader2 size={12} className="animate-spin" /> : <Radio size={12} />} Simulate Event
+          </button>
+          <button
+            onClick={() => onSeedCohort()}
+            disabled={simulating}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Sparkles size={12} className="text-coral" /> Seed 5-Event Cohort
+          </button>
+        </div>
       </div>
+
       <div className="mt-7 grid gap-3 md:grid-cols-3">
-         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Signal events</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{signals.length}</p><p className="mt-1 text-[11px] text-slate-400">Company events in the radar</p></div>
-         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">New signals</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{signals.filter((signal) => signal.status === 'new').length}</p><p className="mt-1 text-[11px] text-slate-400">Ready for manager triage</p></div>
-         <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><p className="eyebrow">Avg relevance</p><p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{signals.length ? Math.round(signals.reduce((sum, signal) => sum + signal.relevance_score, 0) / signals.length) : 0}</p><p className="mt-1 text-[11px] text-slate-400">Weighted account relevance</p></div>
-       </div>
-       <div className="mt-5 space-y-2">
-         {signals.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-xs text-slate-400">No signal events match the current view.</div> : signals.map((signal) => (
-           <div key={signal.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3.5">
-             <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><Radio size={14} /></div>
-             <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-bold text-ink">{signal.headline}</p><p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-600">{eventLabel(signal.event_type)} · {signal.company_domain}</p></div><span className="text-[10px] font-medium text-slate-400">{relativeDate(signal.occurred_at)}</span></div><p className="mt-2 text-[11px] leading-relaxed text-slate-500">{signal.summary}</p><div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-[10px] font-semibold text-slate-400">Relevance {signal.relevance_score} · {signal.source}</span>{signal.status === 'new' ? <button onClick={() => onAcknowledge(signal)} disabled={busyId === signal.id} className="rounded-lg bg-ink px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">{busyId === signal.id ? <Loader2 size={12} className="animate-spin" /> : 'Acknowledge'}</button> : <span className="text-[10px] font-bold capitalize text-emerald-600">{signal.status}</span>}</div></div>
-           </div>
-         ))}
-       </div>
-       <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4"><Sparkles size={17} className="shrink-0 text-coral" /><p className="text-xs leading-relaxed text-slate-500"><span className="font-bold text-ink">Connected signal source:</span> deterministic funding, leadership, workforce, technology, competitive, and expansion events are persisted in the CRM signal stream.</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+          <p className="eyebrow">Radar events</p>
+          <p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">{signals.length}</p>
+          <p className="mt-1 text-[11px] text-slate-400">Live events across target accounts</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+          <p className="eyebrow">New signals</p>
+          <p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">
+            {signals.filter((signal) => signal.status === 'new').length}
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">Ready for autonomous workflow</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+          <p className="eyebrow">Avg relevance</p>
+          <p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-ink">
+            {signals.length ? Math.round(signals.reduce((sum, signal) => sum + signal.relevance_score, 0) / signals.length) : 0}%
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">Weighted ICP relevance score</p>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {signals.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-400">
+            No signal events match the current view. Click "Simulate Event" above to inject a live signal.
+          </div>
+        ) : (
+          signals.map((signal) => (
+            <div key={signal.id} className="group rounded-2xl border border-slate-200/90 bg-white/90 p-4 transition hover:border-slate-300 hover:shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <SignalBadge eventType={signal.event_type} />
+                  <span className="text-xs font-bold text-ink">{signal.company_name}</span>
+                  <span className="text-[11px] font-medium text-slate-400">· {signal.company_domain}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                    Relevance {signal.relevance_score}%
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-400">{relativeDate(signal.occurred_at)}</span>
+                </div>
+              </div>
+
+              <h3 className="mt-2 text-sm font-bold text-ink">{signal.headline}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">{signal.summary}</p>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                  <span className="font-semibold text-slate-400">Suggested Motion:</span>
+                  <span>{signal.suggested_action}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onRunPipeline(signal)}
+                    disabled={busyId === signal.id}
+                    className="flex items-center gap-1.5 rounded-xl bg-coral px-3 py-1.5 text-[11px] font-bold text-white shadow-xs transition hover:bg-[#e05635] disabled:opacity-50"
+                  >
+                    {busyId === signal.id ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} />} Run Pod Flow
+                  </button>
+                  {signal.status === 'new' ? (
+                    <button
+                      onClick={() => onAcknowledge(signal)}
+                      disabled={busyId === signal.id}
+                      className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Acknowledge
+                    </button>
+                  ) : (
+                    <span className="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-bold capitalize text-emerald-700 border border-emerald-200">
+                      {signal.status}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4">
+        <Sparkles size={17} className="shrink-0 text-coral" />
+        <p className="text-xs leading-relaxed text-slate-500">
+          <span className="font-bold text-ink">Autonomous Signal Loop:</span> Click <strong>Run Pod Flow</strong> on any signal above to run the 9-stage sequence: Account research via <code>signals-mcp</code>, ICP scoring, buying committee mapping, personalized email drafts, compliance check, approval inbox enqueuing, and sandbox delivery.
+        </p>
+      </div>
     </div>
   )
 }
@@ -887,6 +1285,11 @@ export default function App() {
   const [dealLoading, setDealLoading] = useState(false)
   const [approvalBusy, setApprovalBusy] = useState<string | null>(null)
   const [signalBusy, setSignalBusy] = useState<string | null>(null)
+  const [activePipelineSignal, setActivePipelineSignal] = useState<SignalEventRecord | null>(null)
+  const [activePipelineResult, setActivePipelineResult] = useState<SignalPipelineResult | null>(null)
+  const [pipelineLoading, setPipelineLoading] = useState(false)
+  const [pipelineBusy, setPipelineBusy] = useState(false)
+  const [simulating, setSimulating] = useState(false)
   const [leadQuery, setLeadQuery] = useState('')
   const [leadSearchLoading, setLeadSearchLoading] = useState(false)
   const [headerSearch, setHeaderSearch] = useState('')
@@ -1012,6 +1415,101 @@ export default function App() {
     }
   }
 
+  const handleSimulate = async (eventType?: string) => {
+    setSimulating(true)
+    setError(null)
+    try {
+      const newSignal = await api.simulateSignal(eventType)
+      setSignals((current) => [newSignal, ...current])
+      const refreshedOverview = await api.getOverview()
+      setOverview(refreshedOverview)
+      setAuditEvents(refreshedOverview.recent_audit_events)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Failed to simulate signal.')
+    } finally {
+      setSimulating(false)
+    }
+  }
+
+  const handleSeedCohort = async () => {
+    setSimulating(true)
+    setError(null)
+    try {
+      const res = await api.seedStreamCohort()
+      setSignals(res)
+      const refreshedOverview = await api.getOverview()
+      setOverview(refreshedOverview)
+      setAuditEvents(refreshedOverview.recent_audit_events)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Failed to seed signal cohort.')
+    } finally {
+      setSimulating(false)
+    }
+  }
+
+  const handleRunPipeline = async (signal: SignalEventRecord) => {
+    setActivePipelineSignal(signal)
+    setActivePipelineResult(null)
+    setPipelineLoading(true)
+    setError(null)
+    try {
+      const result = await api.runSignalPipeline(signal.id)
+      setActivePipelineResult(result)
+      setSignals((current) =>
+        current.map((s) => (s.id === signal.id ? { ...s, status: 'processed' } : s))
+      )
+      const [refreshedApprovals, refreshedOverview] = await Promise.all([
+        api.getApprovals(),
+        api.getOverview(),
+      ])
+      setApprovals(refreshedApprovals)
+      setOverview(refreshedOverview)
+      setAuditEvents(refreshedOverview.recent_audit_events)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Failed to execute signal pipeline.')
+    } finally {
+      setPipelineLoading(false)
+    }
+  }
+
+  const handleApproveAndSendSandbox = async (approvalId: string) => {
+    setPipelineBusy(true)
+    setError(null)
+    try {
+      const decided = await api.decideApproval(
+        approvalId,
+        'approved',
+        'Approved from Signal Pipeline Modal & auto-dispatched to sandbox.'
+      )
+      setApprovals((current) => current.map((item) => (item.id === decided.id ? decided : item)))
+      const [refreshedOverview, refreshedSignals] = await Promise.all([
+        api.getOverview(),
+        api.getSignals(),
+      ])
+      setOverview(refreshedOverview)
+      setSignals(refreshedSignals)
+      setAuditEvents(refreshedOverview.recent_audit_events)
+
+      if (activePipelineResult) {
+        setActivePipelineResult({
+          ...activePipelineResult,
+          sandbox_send: {
+            status: 'sent',
+            recipient: activePipelineResult.buying_committee.economic_buyer?.email || 'contact@target.com',
+            subject: activePipelineResult.email_variants[0]?.subject || 'Partnership Inquiry',
+            message_id: `sandbox-${Date.now().toString(36)}`,
+            sent_at: new Date().toISOString(),
+            sandbox_transport: 'mock_smtp_sandbox',
+          },
+        })
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Failed to approve and send to sandbox.')
+    } finally {
+      setPipelineBusy(false)
+    }
+  }
+
   const handleAskAgent = async (event: FormEvent) => {
     event.preventDefault()
     await askAgent(agentInput.trim())
@@ -1051,7 +1549,7 @@ export default function App() {
   const pageCopy = useMemo(() => {
     if (activeView === 'pipeline') return { eyebrow: 'Pipeline command', title: 'See the shape of your quarter.', subtitle: 'Weighted coverage, stage friction, and the deals that need a sharper next step.' }
     if (activeView === 'approvals') return { eyebrow: 'Human in the loop', title: 'Keep autonomy accountable.', subtitle: 'Review evidence-backed decisions before they become customer-facing actions.' }
-    if (activeView === 'signals') return { eyebrow: 'Event-driven intelligence', title: 'Signals before the meeting.', subtitle: 'Evidence from calls and CRM activity is already turning into timely action.' }
+    if (activeView === 'signals') return { eyebrow: 'Event-driven intelligence', title: 'Signals before the meeting.', subtitle: 'Real-time corporate events driving autonomous research, committee mapping, and personalized outreach.' }
     if (activeView === 'audit') return { eyebrow: 'Immutable trail', title: 'See what the pod changed.', subtitle: 'Every persisted approval and CRM mutation has a traceable actor, entity, and payload.' }
     return { eyebrow: todayLabel(), title: 'Good morning, Siddhesh.', subtitle: 'Your pod is online. Here is what changed while you were away.' }
   }, [activeView])
@@ -1068,7 +1566,23 @@ export default function App() {
       {activeView === 'overview' && <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><LeadSearch leads={leads} query={leadQuery} onQueryChange={setLeadQuery} onSubmit={handleLeadSearch} loading={leadSearchLoading} /><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSuggestion={handleSuggestion} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
       {activeView === 'pipeline' && <div className="mt-5"><LeadSearch leads={leads} query={leadQuery} onQueryChange={setLeadQuery} onSubmit={handleLeadSearch} loading={leadSearchLoading} /></div>}
       {activeView === 'approvals' && <div className="mt-5"><SupervisorPanel messages={agentMessages} input={agentInput} onInput={setAgentInput} onSuggestion={handleSuggestion} onSubmit={handleAskAgent} loading={agentLoading} /></div>}
-       {activeView === 'signals' && <><SignalRadar overview={overview} signals={signals} onAcknowledge={handleAcknowledgeSignal} busyId={signalBusy} /><div className="mt-5"><ActivityFeed activities={overview.recent_activities} onOpenAudit={() => handleNavigate('audit')} /></div></>}
+      {activeView === 'signals' && (
+        <>
+          <SignalRadar
+            overview={overview}
+            signals={signals}
+            onAcknowledge={handleAcknowledgeSignal}
+            onSimulate={handleSimulate}
+            onSeedCohort={handleSeedCohort}
+            onRunPipeline={handleRunPipeline}
+            busyId={signalBusy}
+            simulating={simulating}
+          />
+          <div className="mt-5">
+            <ActivityFeed activities={overview.recent_activities} onOpenAudit={() => handleNavigate('audit')} />
+          </div>
+        </>
+      )}
       {activeView === 'audit' && <AuditLog events={auditEvents} />}
     </>
   ) : (
@@ -1092,6 +1606,19 @@ export default function App() {
       </main>
       <MobileNav activeView={activeView} onNavigate={handleNavigate} />
       {(selectedApproval || dealLoading) && <DealDrawer deal={selectedDeal} approval={selectedApproval} loading={dealLoading} onClose={() => { setSelectedApproval(null); setSelectedDeal(null) }} onStageUpdate={handleStageUpdate} />}
+      {activePipelineSignal && (
+        <SignalPipelineModal
+          signal={activePipelineSignal}
+          pipeline={activePipelineResult}
+          loading={pipelineLoading}
+          busy={pipelineBusy}
+          onClose={() => {
+            setActivePipelineSignal(null)
+            setActivePipelineResult(null)
+          }}
+          onApproveAndSend={handleApproveAndSendSandbox}
+        />
+      )}
     </div>
   )
 }

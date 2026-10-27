@@ -32,6 +32,8 @@ class ActivityType(StrEnum):
 class SignalEventType(StrEnum):
     FUNDING_ROUND = "funding_round"
     EXECUTIVE_CHANGE = "executive_change"
+    NEW_CTO = "new_cto"
+    LEADERSHIP_CHANGE = "leadership_change"
     LAYOFFS = "layoffs"
     TECH_STACK_CHANGE = "tech_stack_change"
     COMPETITOR_MENTION = "competitor_mention"
@@ -41,4 +43,5 @@ class SignalEventType(StrEnum):
 class SignalStatus(StrEnum):
     NEW = "new"
     ACKNOWLEDGED = "acknowledged"
+    PROCESSED = "processed"
     DISMISSED = "dismissed"

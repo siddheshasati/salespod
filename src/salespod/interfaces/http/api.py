@@ -13,6 +13,8 @@ from salespod.agents.graph import build_graph
 from salespod.application.crm_service import CrmService
 from salespod.application.policy import PolicyEngine
 from salespod.application.signal_service import SignalService
+from salespod.application.signal_stream import SignalStreamService
+from salespod.application.signal_workflow import SignalWorkflowOrchestrator
 from salespod.config import Settings
 from salespod.domain.contracts import (
     GetDealResponse,
@@ -43,6 +45,8 @@ from .schemas import (
     PolicyEvaluationResponse,
     SignalAcknowledgeRequest,
     SignalEventRecord,
+    SignalPipelineRequest,
+    SignalSimulateRequest,
     StageChangeRequest,
 )
 
@@ -305,6 +309,51 @@ def create_app(
             note=request.note,
         )
         return SignalEventRecord.model_validate(record.model_dump())
+
+    @app.post("/api/signals/simulate", response_model=SignalEventRecord, tags=["signals"])
+    def simulate_signal(
+        request: SignalSimulateRequest,
+        session_factory: Annotated[sessionmaker[Session], Depends(_session_factory)],
+    ) -> SignalEventRecord:
+        with session_factory() as session:
+            with session.begin():
+                service = SignalStreamService(session)
+                sig = service.simulate_event(
+                    event_type=request.event_type,
+                    company_id=str(request.company_id) if request.company_id else None,
+                    actor=request.actor,
+                )
+                sig_id = UUID(sig.id)
+        signal_service = SignalService(session_factory)
+        record = signal_service.get_event(sig_id)
+        return SignalEventRecord.model_validate(record.model_dump())
+
+    @app.post("/api/signals/stream/seed", response_model=list[SignalEventRecord], tags=["signals"])
+    def seed_signal_stream(
+        session_factory: Annotated[sessionmaker[Session], Depends(_session_factory)],
+    ) -> list[SignalEventRecord]:
+        with session_factory() as session:
+            with session.begin():
+                service = SignalStreamService(session)
+                events = service.seed_stream_cohort()
+                event_ids = [UUID(e.id) for e in events]
+        signal_service = SignalService(session_factory)
+        records = [signal_service.get_event(eid) for eid in event_ids]
+        return [SignalEventRecord.model_validate(r.model_dump()) for r in records]
+
+    @app.post("/api/signals/{signal_id}/pipeline", tags=["signals"])
+    def run_signal_pipeline(
+        signal_id: UUID,
+        request: SignalPipelineRequest,
+        session_factory: Annotated[sessionmaker[Session], Depends(_session_factory)],
+    ) -> dict[str, Any]:
+        orchestrator = SignalWorkflowOrchestrator(session_factory)
+        result = orchestrator.execute_pipeline(
+            signal_id=str(signal_id),
+            actor=request.actor,
+            auto_approve=request.auto_approve,
+        )
+        return result.model_dump(mode="json")
 
     @app.post("/api/deals/{deal_id}/stage", tags=["crm"])
     def update_deal_stage(

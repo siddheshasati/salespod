@@ -340,9 +340,7 @@ class CrmService:
                     "deal_name": deal.name,
                     "amount_minor": deal.amount_minor,
                     "stage": deal.stage,
-                    "days_in_stage": max(
-                        0, (now_utc() - _utc(deal.stage_entered_at)).days
-                    ),
+                    "days_in_stage": max(0, (now_utc() - _utc(deal.stage_entered_at)).days),
                 }
                 for deal in stalled
             ]

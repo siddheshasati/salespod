@@ -1,0 +1,119 @@
+{
+  "as_of": "2026-10-21T12:00:00+00:00",
+  "content_hash": "855ec4b195f988431835d812cc5665ad98127a4cf402158587dc52484a78c4bb",
+  "counts": {
+    "activities": 60,
+    "call_transcripts": 60,
+    "companies": 80,
+    "deals": 120,
+    "email_threads": 1500,
+    "leads": 500,
+    "signal_events": 12,
+    "stage_history": 120
+  },
+  "expected_pipeline": {
+    "currency": "USD",
+    "stages": {
+      "closed_lost": {
+        "amount_minor": 206191800,
+        "count": 19
+      },
+      "closed_won": {
+        "amount_minor": 201920700,
+        "count": 19
+      },
+      "discovery": {
+        "amount_minor": 210462900,
+        "count": 19
+      },
+      "negotiation": {
+        "amount_minor": 213980600,
+        "count": 24
+      },
+      "proposal": {
+        "amount_minor": 217044000,
+        "count": 20
+      },
+      "qualification": {
+        "amount_minor": 214734000,
+        "count": 19
+      }
+    },
+    "total_amount_minor": 1264334000,
+    "total_count": 120
+  },
+  "ground_truth_cases": [
+    {
+      "company_id": "991b9f19-d89f-518c-a36d-38418689aecc",
+      "deal_id": "74776933-8bee-5c09-a702-080a177c044e",
+      "evidence": {
+        "call_id": "074f0784-5eb8-512c-92f9-bbbbb35089c5",
+        "phrases": [
+          "bring our CFO",
+          "budget may be frozen",
+          "economic buyer"
+        ]
+      },
+      "expected_stage": "negotiation",
+      "reason": "missing_economic_buyer"
+    },
+    {
+      "company_id": "a0aafa9f-1389-5c6d-baab-a987bb464411",
+      "deal_id": "64fae199-253c-51ed-b2a6-ffe2e5f7face",
+      "evidence": {
+        "call_id": "d4cc0d5d-bb2a-5a52-9ce9-9550426a80cc",
+        "phrases": [
+          "bring our CFO",
+          "budget may be frozen",
+          "economic buyer"
+        ]
+      },
+      "expected_stage": "negotiation",
+      "reason": "missing_economic_buyer"
+    },
+    {
+      "company_id": "25ced08b-7cf0-557d-804d-8abdfed47d72",
+      "deal_id": "56433783-7423-53d2-9c77-2b681aee7641",
+      "evidence": {
+        "call_id": "fc28258a-b4c3-5b6a-a43a-b9a027b430b8",
+        "phrases": [
+          "bring our CFO",
+          "budget may be frozen",
+          "economic buyer"
+        ]
+      },
+      "expected_stage": "negotiation",
+      "reason": "missing_economic_buyer"
+    },
+    {
+      "company_id": "b15e3879-ec04-5e87-8ee5-40de8c89ddd3",
+      "deal_id": "e0eb803a-a8ab-57a1-9c4a-4136c3382a91",
+      "evidence": {
+        "call_id": "eb63a63c-b1cf-50c0-aaf9-9d46244b7bd4",
+        "phrases": [
+          "bring our CFO",
+          "budget may be frozen",
+          "economic buyer"
+        ]
+      },
+      "expected_stage": "negotiation",
+      "reason": "missing_economic_buyer"
+    },
+    {
+      "company_id": "3aefd23c-7096-5e80-b66b-079773e00bae",
+      "deal_id": "daada15b-3247-593c-a7ce-5ad1a5d74be5",
+      "evidence": {
+        "call_id": "7d5a8ac4-2dcf-5f3f-ad36-fb5e7ec098f2",
+        "phrases": [
+          "bring our CFO",
+          "budget may be frozen",
+          "economic buyer"
+        ]
+      },
+      "expected_stage": "negotiation",
+      "reason": "missing_economic_buyer"
+    }
+  ],
+  "manifest_version": 1,
+  "seed": 424242
+}

@@ -35,6 +35,21 @@ export const api = {
   getAuditEvents: () => request<AuditEventSummary[]>('/api/audit/events?limit=100'),
   getSignals: (status?: string) =>
     request<SignalEventRecord[]>(`/api/signals?limit=50${status ? `&status=${encodeURIComponent(status)}` : ''}`),
+  simulateSignal: (eventType?: string, companyId?: string) =>
+    request<SignalEventRecord>('/api/signals/simulate', {
+      method: 'POST',
+      body: JSON.stringify({ event_type: eventType, company_id: companyId }),
+    }),
+  seedStreamCohort: () =>
+    request<SignalEventRecord[]>('/api/signals/stream/seed', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  runSignalPipeline: (signalId: string, autoApprove = false) =>
+    request<import('./types').SignalPipelineResult>(`/api/signals/${signalId}/pipeline`, {
+      method: 'POST',
+      body: JSON.stringify({ auto_approve: autoApprove }),
+    }),
   acknowledgeSignal: (signalId: string, note?: string) =>
     request<SignalEventRecord>(`/api/signals/${signalId}/acknowledge`, {
       method: 'POST',

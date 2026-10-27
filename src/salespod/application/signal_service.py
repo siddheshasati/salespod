@@ -48,9 +48,9 @@ class SignalService:
                     )
                 )
             rows = session.execute(
-                statement.order_by(
-                    SignalEvent.occurred_at.desc(), SignalEvent.id
-                ).limit(request.limit)
+                statement.order_by(SignalEvent.occurred_at.desc(), SignalEvent.id).limit(
+                    request.limit
+                )
             ).all()
         return [self._summary(event, company) for event, company in rows]
 

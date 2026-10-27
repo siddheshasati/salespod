@@ -26,9 +26,7 @@ class DashboardRepository:
     def recent_activities(self, *, limit: int = 10) -> list[ActivitySummary]:
         with self.session_factory() as session:
             activities = session.scalars(
-                select(Activity)
-                .order_by(Activity.occurred_at.desc(), Activity.id)
-                .limit(limit)
+                select(Activity).order_by(Activity.occurred_at.desc(), Activity.id).limit(limit)
             ).all()
         return [self._summary(activity) for activity in activities]
 

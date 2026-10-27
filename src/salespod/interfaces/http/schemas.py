@@ -68,14 +68,14 @@ class ApprovalDecision(StrEnum):
 
 class ApprovalEvidence(ApiModel):
     source_id: UUID
-    source_type: Literal["call_transcript"]
+    source_type: str
     summary: str
     occurred_at: datetime
 
 
 class ApprovalRecord(ApiModel):
     id: str
-    risk_type: Literal["missing_economic_buyer"]
+    risk_type: str
     status: ApprovalStatus
     deal_id: UUID
     company_id: UUID
@@ -158,3 +158,14 @@ class SignalEventRecord(ApiModel):
 class SignalAcknowledgeRequest(ApiModel):
     actor: str = Field(min_length=1, max_length=120)
     note: str | None = Field(default=None, min_length=1, max_length=500)
+
+
+class SignalSimulateRequest(ApiModel):
+    event_type: str | None = Field(default=None, max_length=50)
+    company_id: UUID | None = None
+    actor: str = Field(default="signal_stream", min_length=1, max_length=120)
+
+
+class SignalPipelineRequest(ApiModel):
+    actor: str = Field(default="manager", min_length=1, max_length=120)
+    auto_approve: bool = False

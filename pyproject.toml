@@ -33,6 +33,7 @@ dev = [
 salespod-agent = "scripts.run_agent:main"
 salespod-api = "scripts.run_api:main"
 salespod-mcp = "salespod.interfaces.mcp.server:main"
+salespod-signals-mcp = "salespod.interfaces.mcp.signals_server:main"
 salespod-seed = "scripts.seed_database:main"
 salespod-migrate = "scripts.migrate_database:main"
 

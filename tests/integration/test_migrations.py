@@ -69,9 +69,12 @@ def test_migrate_database_upgrades_an_unversioned_legacy_database(tmp_path: Path
     migrate_database(database_url)
 
     with engine.connect() as connection:
-        assert connection.execute(
-            text("SELECT name FROM companies WHERE id = 'legacy-company'")
-        ).scalar_one() == "Legacy Co"
+        assert (
+            connection.execute(
+                text("SELECT name FROM companies WHERE id = 'legacy-company'")
+            ).scalar_one()
+            == "Legacy Co"
+        )
     assert _revision(database_url) == HEAD
     assert inspect(engine).has_table("approval_requests")
 
@@ -94,6 +97,9 @@ def test_migrate_database_stamps_an_existing_current_schema(tmp_path: Path) -> N
 
     assert _revision(database_url) == HEAD
     with engine.connect() as connection:
-        assert connection.execute(
-            text("SELECT name FROM companies WHERE id = 'current-company'")
-        ).scalar_one() == "Current Co"
+        assert (
+            connection.execute(
+                text("SELECT name FROM companies WHERE id = 'current-company'")
+            ).scalar_one()
+            == "Current Co"
+        )

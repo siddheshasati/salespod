@@ -1,14 +1,23 @@
 # Autonomous Sales Pod
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
-[![FastMCP](https://img.shields.io/badge/FastMCP-Enabled-green.svg)](https://github.com/jlowin/fastmcp)
+[![FastMCP](https://img.shields.io/badge/FastMCP-Dual%20Servers-green.svg)](https://github.com/jlowin/fastmcp)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Compatible-orange.svg)](https://github.com/langchain-ai/langgraph)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%7C%20Vite%20%7C%20Tailwind-blueviolet.svg)](frontend/)
 [![Offline First](https://img.shields.io/badge/Architecture-Offline--First-success.svg)](#offline-first--local-llm-architecture)
+[![Tests Passing](https://img.shields.io/badge/Tests-28%2F28%20Passing-emerald.svg)](#verification--code-quality)
 
-**Autonomous Sales Pod** is a production-oriented, offline-first AI revenue engine and manager command center. It unifies a deterministic synthetic CRM, transactional application services, a FastMCP tool boundary, a LangGraph-compatible supervisor flow, and an interactive executive dashboard.
+**Autonomous Sales Pod** is a production-oriented, offline-first AI revenue engine and manager command center. It unifies a deterministic synthetic CRM, transactional application services, a dual FastMCP tool boundary (`salespod-mcp` and `salespod-signals-mcp`), an autonomous 9-stage event-driven GTM engine, a LangGraph-compatible supervisor flow, and an interactive executive dashboard.
 
-The system ensures that autonomous agents cannot mutate CRM state unchecked: every state mutation flows through a transactional service with optimistic concurrency control, idempotency guards, and human-in-the-loop approvals.
+The system ensures that autonomous agents cannot mutate CRM state or dispatch customer communications unchecked: every action flows through transactional application services with optimistic concurrency control, idempotency guards, automated 5-gate compliance checks, and human-in-the-loop approvals.
+
+---
+
+## Documentation Quick Links
+
+- [System Architecture Specification](docs/architecture.md): Subsystems, hexagonal boundaries, concurrency control, and schema lifecycle.
+- [Business Case & GTM Strategy](docs/business.md): Problem space, multi-threading value drivers, ROI economics, and persona impacts.
+- [9-Stage Signal Pipeline Guide](docs/pipeline.md): Comprehensive operational and technical specification of the event-driven signal flow.
 
 ---
 
@@ -47,50 +56,50 @@ Revenue teams get targeted guidance on where to spend effort, paired with an alw
 
 ---
 
+### 4. Real-Time Signal Radar & Autonomous 9-Stage GTM Pipeline
+
+The **Signal Radar** acts as the trigger engine of the pod, translating unstructured market signals into multi-threaded outbound sales sequences:
+
+- **Live Simulated Event Stream**: Generates real corporate triggers across 5 vital categories:
+  1. **Funding round**: Capital expansion, valuation context, and growth mandate.
+  2. **New CTO**: Engineering leadership appointments and tech roadmap re-evaluations.
+  3. **Layoffs / Restructure**: Tool consolidation and cost-efficiency pressures.
+  4. **Tech-stack migration**: Adoptions of cloud, data warehouse, and security tooling.
+  5. **Leadership change**: VP of Sales / CRO transitions and strategic GTM pivots.
+- **9-Stage Autonomous Pod Sequence**:
+  ```text
+  Signal Event ➔ Account Research (signals-mcp) ➔ Lead/ICP Scoring ➔
+  Buying Committee Mapping ➔ 3 Email Variants ➔ Policy & Compliance Check ➔
+  Approval Inbox Enqueue ➔ Sandbox Dispatch ➔ CRM Activity & Audit Logging
+  ```
+- **Interactive 9-Stage Modal Visualizer**:
+  - **Live Step Progress Stepper**: Visual execution tracking across research, scoring, committee mapping, copy generation, and clearance.
+  - **Multi-Angle Email Variants**: Inspect 3 tailored drafts (*Strategic ROI-driven*, *Technical integration-focused*, *Direct executive peer note*).
+  - **Buying Committee Mapping**: Inspect identified Economic Buyer, Technical Buyer, and Champion with fit scores and strategic rationales.
+  - **`signals-mcp` Live Telemetry**: Live tech stack categorization and corporate news dossier.
+  - **Compliance Clearance**: 5-rule safety scan (CAN-SPAM, opt-out clarity, accurate attribution, non-coercive tone, verified recipient persona).
+  - **One-Click Sandbox Dispatch**: Human manager sign-off dispatches to mock SMTP sandbox, updates the CRM timeline, and records an immutable audit log entry.
+
+---
+
 ## Core Use Cases
 
 | Use Case | Description | How It Works |
 | :--- | :--- | :--- |
+| **Event-Driven Signal GTM** | Act on critical market events before competitors even notice. | Simulated or ingested corporate triggers run through the autonomous 9-stage pipeline to generate committee-mapped, compliance-cleared outreach. |
+| **Multi-Threaded Committee Mapping** | Prevent stalled deals by reaching Economic, Technical, and Champion stakeholders simultaneously. | Automatically maps corporate hierarchy and generates differentiated messaging angles tailored to each role's priorities. |
 | **Pipeline & Forecast Intelligence** | Maintain accurate, real-time revenue forecasts without manual spreadsheet rollups. | The engine aggregates stage totals, applies deterministic probability weighting, and visualizes pipeline health against targets. |
-| **Human-in-the-Loop Risk Intervention** | Prevent agent hallucinations or unauthorized changes from corrupting CRM data. | Risky deal transitions or unverified qualification claims generate approval inbox items backed by transcript citations for manager sign-off. |
+| **Human-in-the-Loop Risk Intervention** | Prevent agent hallucinations or unauthorized changes from corrupting CRM data. | Risky deal transitions and external outbound emails require manager sign-off backed by grounded citations and compliance logs. |
 | **Natural Language CRM Operations** | Query deals, leads, and company accounts conversationally from Slack, CLI, or the UI. | LangGraph supervisor routes user prompts through typed FastMCP tools (`search_leads`, `get_deal`, `get_pipeline_snapshot`). |
-| **Intelligent Lead Prioritization** | Focus sales reps on accounts with the highest conversion likelihood. | Prospects are automatically evaluated, scored on fit, and queued for outreach motions with context-rich buyer profiles. |
 | **Safe Transactional Deal Management** | Maintain strict data integrity under concurrent multi-agent and user operations. | All CRM mutations require version locking (`expected_version`) and idempotency keys to eliminate race conditions and double-writes. |
 
 ---
 
-## System Architecture
+## Dual FastMCP Server Tool Contracts
 
-```text
-Manager / MCP Client / Frontend Dashboard
-                │
-                ├──────────────────────────────────────┐
-                ▼                                      ▼
-     FastMCP Adapter (stdio / HTTP)           Supervisor Graph (LangGraph)
-                │                                      │
-                └───────────────────┬──────────────────┘
-                                    ▼
-                         CRM Application Service
-                (Validation · Concurrency · Idempotency)
-                                    │
-                                    ▼
-                         SQLAlchemy Repositories
-                                    │
-                                    ▼
-                         SQLite (dev) / Postgres (prod)
-```
+The pod architecture separates internal CRM operations from external market intelligence across two dedicated FastMCP servers:
 
-### Key Architectural Principles
-- **Separation of Concerns**: The domain model has zero dependencies on FastMCP, LangGraph, Ollama, or SQLAlchemy.
-- **Offline-First & Local LLMs**: Core CRM operations, tests, and supervisor flows run offline without cloud dependencies. When [Ollama](https://ollama.com/) is running, `qwen2.5:3b` performs natural language reasoning and `nomic-embed-text` powers playbook/knowledge retrieval.
-- **Guarded Mutations**: MCP tools and agent flows cannot alter deal states without passing through optimistic concurrency checks (`expected_version`) and idempotency validation.
-- **Separation of Ground Truth**: Synthetic seed data includes planted ground truth stored separately in `data/ground_truth.json` for objective agent evaluation; agents never have direct access to this evaluation file.
-
----
-
-## FastMCP Tool Contracts
-
-The pod exposes eight typed MCP tools via FastMCP:
+### 1. CRM Server (`salespod-mcp`)
 
 | Tool | Purpose | Mutation | Safety Mechanism |
 | :--- | :--- | :---: | :--- |
@@ -102,6 +111,14 @@ The pod exposes eight typed MCP tools via FastMCP:
 | `list_signal_events` | List company signal events with filters | No | Read-only durable signal query |
 | `get_signal_event` | Retrieve one signal event and source metadata | No | Read-only durable signal query |
 | `acknowledge_signal` | Mark a signal as reviewed by a manager | **Yes** | Transactional status update and audit event |
+
+### 2. Market Intelligence Server (`salespod-signals-mcp`)
+
+| Tool | Parameters | Purpose | Output |
+| :--- | :--- | :--- | :--- |
+| `get_company_news` | `domain: str` | Retrieves categorized corporate press, executive changes, and regulatory news | Structured headlines, source citations, and summaries |
+| `get_funding_events` | `domain: str` | Retrieves venture/debt funding rounds, valuations, and lead investors | Round history, capital raised, and strategic growth context |
+| `get_tech_stack` | `domain: str` | Identifies active technologies across cloud, CRM, data warehouse, and security | Categorized tech items with adoption/migration status |
 
 ---
 
@@ -129,50 +146,34 @@ python -m pip install -e ".[dev,agents]"
 python -m pip install -r requirements.txt
 ```
 
-`pyproject.toml` remains the canonical package configuration; `requirements.txt`
-is provided as a convenient all-in-one installation file.
-
-### Database migrations
-
-The API and seed command apply Alembic migrations automatically. To migrate a
-database explicitly:
+### 2. Database Migrations & Seeding
 
 ```powershell
-python -m scripts.migrate_database
-# or, after editable installation:
+# Explicitly apply Alembic database migrations
 salespod-migrate
-```
 
-Existing databases from the pre-Alembic local slice are detected and upgraded
-without dropping CRM data. New databases are created at the latest revision.
-
-### 2. Seed the Synthetic CRM
-
-Generate 80 companies, 500 leads, 120 deals, 1,500 email threads, 60 call transcripts, and 12 company signal events with a deterministic seed:
-
-```powershell
+# Seed synthetic CRM with deterministic companies, deals, leads, transcripts, and signal events
 python -m scripts.seed_database --reset
 ```
 
-*This resets the database through Alembic, creates `data/salespod.db`, and writes the evaluation file `data/ground_truth.json`.*
+*This creates `data/salespod.db` and writes the evaluation ground truth to `data/ground_truth.json`.*
 
-### 3. Run the CLI Agent
+### 3. Run the Dual FastMCP Servers
 
-Query the pod directly from the command line:
+```powershell
+# Run the core CRM FastMCP server (salespod-mcp)
+salespod-mcp
+
+# Run the Market Intelligence FastMCP server (salespod-signals-mcp)
+salespod-signals-mcp
+```
+
+### 4. Run the CLI Agent
 
 ```powershell
 python -m scripts.run_agent "Show the current pipeline snapshot"
 python -m scripts.run_agent "Find leads at Acme"
-```
-
-### 4. Run the FastMCP Server
-
-Expose the CRM tools over stdio to any MCP client (Claude Desktop, Cursor, etc.):
-
-```powershell
-python -m scripts.run_mcp_server
-# or, after editable installation:
-salespod-mcp
+python -m scripts.run_agent "Why will we miss Q4?"
 ```
 
 ---
@@ -198,60 +199,21 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser. The Vite dev server proxies `/api` calls directly to the FastAPI backend.
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-The command center's approval inbox is backed by SQLite rather than process
-memory. Approval decisions survive an API restart, and stage changes, logged
-activities, and approval decisions are available through:
+### Key API Routes for the Command Center & Signal Radar
 
 ```text
-GET  /api/audit/events
-POST /api/policy/evaluate
+GET  /api/dashboard/overview              Dashboard KPI totals, pipeline stages, risk summaries
+GET  /api/approvals                       Pending human-in-the-loop approval inbox items
+POST /api/approvals/{id}/decide           Submit manager decision (approved/rejected)
+GET  /api/signals                         Fetch live corporate signal events
+POST /api/signals/simulate                Simulate an ad-hoc signal (new_cto, funding, layoffs, etc.)
+POST /api/signals/stream/seed             Seed a balanced 5-event live signal stream cohort
+POST /api/signals/{id}/pipeline           Execute the 9-stage autonomous GTM pipeline
+GET  /api/audit/events                    Immutable cryptographic audit trail
+POST /api/agent/ask                       Conversational copilot query
 ```
-
-The Signal Radar is backed by the durable `signal_events` table and exposes:
-
-```text
-GET  /api/signals
-GET  /api/signals/{signal_id}
-GET  /api/companies/{company_id}/signals
-POST /api/signals/{signal_id}/acknowledge
-```
-
-Signal events include deterministic funding, executive, workforce, technology,
-competitive, and expansion scenarios. The same records are available through
-the MCP tools `list_signal_events`, `get_signal_event`, and `acknowledge_signal`.
-
-The supervisor also supports `Why will we miss Q4?` with structured evidence
-for stalled negotiation deals, missing economic buyers, and competitor mentions.
-
-### Production Build
-
-```powershell
-cd D:\salespod\frontend
-npm run build
-npm run preview
-```
-
----
-
-## Local LLM Configuration (Ollama)
-
-Sales Pod defaults to local Ollama endpoints:
-
-```text
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_CHAT_MODEL=qwen2.5:3b
-OLLAMA_EMBED_MODEL=nomic-embed-text
-```
-
-To use Ollama:
-```powershell
-ollama pull qwen2.5:3b
-ollama pull nomic-embed-text
-```
-
-*Note: All core tests and deterministic routing work seamlessly even when Ollama is offline or not installed.*
 
 ---
 
@@ -260,9 +222,12 @@ ollama pull nomic-embed-text
 Run the test suite and linters:
 
 ```powershell
-# Run offline unit, integration, and contract tests
-python -m pytest
+# Run all unit, integration, and contract tests (28 passed)
+pytest
 
-# Run Ruff linter and formatter checks
+# Run Ruff linter and formatter checks (0 errors)
 ruff check .
+
+# Run Frontend TypeScript & Vite production build (0 errors)
+npm --prefix frontend run build
 ```

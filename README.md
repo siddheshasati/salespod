@@ -1,10 +1,10 @@
-# Autonomous Sales Pod
+# Sales Pod
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-Dual%20Servers-green.svg)](https://github.com/jlowin/fastmcp)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Compatible-orange.svg)](https://github.com/langchain-ai/langgraph)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%7C%20Vite%20%7C%20Tailwind-blueviolet.svg)](frontend/)
-[![Offline First](https://img.shields.io/badge/Architecture-Offline--First-success.svg)](#offline-first--local-llm-architecture)
+[![Offline First](https://img.shields.io/badge/Architecture-Offline--First-success.svg)](docs/architecture.md#architectural-principles)
 [![Tests Passing](https://img.shields.io/badge/Tests-28%2F28%20Passing-emerald.svg)](#verification--code-quality)
 
 **Autonomous Sales Pod** is a production-oriented, offline-first AI revenue engine and manager command center. It unifies a deterministic synthetic CRM, transactional application services, a dual FastMCP tool boundary (`salespod-mcp` and `salespod-signals-mcp`), an autonomous 9-stage event-driven GTM engine, a LangGraph-compatible supervisor flow, and an interactive executive dashboard.
@@ -15,6 +15,7 @@ The system ensures that autonomous agents cannot mutate CRM state or dispatch cu
 
 ## Documentation Quick Links
 
+- [Feature Updates & Roadmap](update.md): Comprehensive inventory of implemented capabilities and forward-looking roadmap.
 - [System Architecture Specification](docs/architecture.md): Subsystems, hexagonal boundaries, concurrency control, and schema lifecycle.
 - [Business Case & GTM Strategy](docs/business.md): Problem space, multi-threading value drivers, ROI economics, and persona impacts.
 - [9-Stage Signal Pipeline Guide](docs/pipeline.md): Comprehensive operational and technical specification of the event-driven signal flow.
@@ -133,7 +134,8 @@ The pod architecture separates internal CRM operations from external market inte
 
 ```powershell
 # Clone the repository and navigate to root
-cd D:\salespod
+git clone <repository-url>
+cd salespod
 
 # Create and activate virtual environment
 py -3.11 -m venv .venv
@@ -141,9 +143,6 @@ py -3.11 -m venv .venv
 
 # Install package with development and agent dependencies
 python -m pip install -e ".[dev,agents]"
-
-# Alternative: install all runtime, agent, and development dependencies
-python -m pip install -r requirements.txt
 ```
 
 ### 2. Database Migrations & Seeding
@@ -185,16 +184,16 @@ The repository includes a modern React/Vite/Tailwind dashboard in [`frontend/`](
 ### Terminal 1: Backend API
 
 ```powershell
-cd D:\salespod
+cd salespod
 .\.venv\Scripts\Activate.ps1
 python -m scripts.run_api
 ```
 *API runs at `http://127.0.0.1:8000`.*
-
++
 ### Terminal 2: Frontend Dev Server
 
 ```powershell
-cd D:\salespod\frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -206,7 +205,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ```text
 GET  /api/dashboard/overview              Dashboard KPI totals, pipeline stages, risk summaries
 GET  /api/approvals                       Pending human-in-the-loop approval inbox items
-POST /api/approvals/{id}/decide           Submit manager decision (approved/rejected)
+POST /api/approvals/{id}/decision         Submit manager decision (approved/rejected)
 GET  /api/signals                         Fetch live corporate signal events
 POST /api/signals/simulate                Simulate an ad-hoc signal (new_cto, funding, layoffs, etc.)
 POST /api/signals/stream/seed             Seed a balanced 5-event live signal stream cohort

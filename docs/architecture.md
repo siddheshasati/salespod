@@ -172,6 +172,7 @@ Built with React 18, Vite, and Tailwind CSS in [frontend/](file:///d:/salespod/f
 
 ## Related Documentation
 
+- [Feature Updates & Roadmap](../update.md)
 - [Business Case & GTM Strategy](business.md)
 - [9-Stage Signal Pipeline Specification](pipeline.md)
 - [Project Readme](../README.md)

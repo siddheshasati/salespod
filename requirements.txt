@@ -2,7 +2,7 @@
 alembic>=1.13,<2
 Faker>=25,<40
 fastapi>=0.115,<1
-fastmcp>=2,<3
+fastmcp>=2,<5
 pydantic>=2.7,<3
 SQLAlchemy>=2.0,<3
 uvicorn>=0.30,<1
